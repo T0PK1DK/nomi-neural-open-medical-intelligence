@@ -23,6 +23,10 @@ Keyboard: `1–6` pages · `/` ask · `?` help · `Esc` close.
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the design rationale and [`docs/REVIEWS.md`](docs/REVIEWS.md) for stakeholder reviews.
 
+## NOMI Care (patient + care team app)
+
+Open `care/index.html`. **The call light, reinvented.** Patients tap what they need, and each request goes to the right person (care assistant, nurse, nutrition, housekeeping). Patients see who's coming and when, like a ride-hailing tracker. Nurses get only clinical requests, each with context: pain score, PRN eligibility, fall risk. Notes are drafted for them to sign, and they can chart by voice. Plain-language results, care-plan-grounded answers, and a discharge readiness checklist. See [`docs/CARE.md`](docs/CARE.md).
+
 ## Vision
 
 NOMI aims to be the unifying neural knowledge network for medicine:

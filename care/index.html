@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NOMI Care</title>
+<meta name="description" content="NOMI Care: the call light, reinvented. Patient and care-team apps that route every request to the right person and give nurses their time back.">
+<meta name="theme-color" content="#0A4D68">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   STAGE
+   ===================================================================== */
+:root {
+  --brand: #0A4D68; --cyan: #22d3ee;
+  --stage-bg: #eef2f4; --stage-ink: #0b1b22; --stage-dim: #51646d;
+  --spring: cubic-bezier(.32, .72, 0, 1);
+  --sys: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+@media (prefers-color-scheme: dark) { :root { --stage-bg: #05090b; --stage-ink: #e6f2f5; --stage-dim: #8aa3ad; } }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body { font-family: var(--sys); background: var(--stage-bg); color: var(--stage-ink); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; border-radius: 10px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+
+.stage-head { text-align: center; padding: 28px 16px 8px; }
+.stage-head .mark { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .01em; font-size: 15px; }
+.stage-head .mark i { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(140deg, #22d3ee, #0A4D68 78%); display: grid; place-items: center; color: #fff; font-style: normal; font-size: 13px; }
+.stage-head h1 { font-size: clamp(26px, 3.4vw, 40px); letter-spacing: -.035em; margin: 10px 0 6px; font-weight: 800; }
+.stage-head h1 span { background: linear-gradient(90deg, #0A4D68, #22d3ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stage-head p { margin: 0 auto; max-width: 620px; color: var(--stage-dim); font-size: 15px; line-height: 1.5; }
+.hint { display: inline-flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--stage-dim); background: color-mix(in srgb, var(--stage-ink) 6%, transparent); padding: 6px 12px; border-radius: 999px; }
+.hint b { color: var(--stage-ink); }
+
+.switch { display: none; margin: 12px auto 0; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--stage-ink) 8%, transparent); width: max-content; }
+.switch button { padding: 8px 16px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--stage-dim); position: relative; }
+.switch button[aria-pressed="true"] { background: var(--stage-bg); color: var(--stage-ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.switch .badge { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #ff453a; display: none; }
+.switch .badge.on { display: block; }
+
+.stage { display: flex; justify-content: center; align-items: flex-start; gap: 0; padding: 18px 16px 24px; }
+.dev-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.dev-col figcaption { font-size: 13px; color: var(--stage-dim); font-weight: 500; }
+.dev-col figcaption b { color: var(--stage-ink); }
+.scaler { width: calc(393px * var(--s, 1)); height: calc(852px * var(--s, 1)); }
+.device { width: 393px; height: 852px; transform: scale(var(--s, 1)); transform-origin: top left; border-radius: 62px; padding: 12px; background: linear-gradient(145deg, #2b3237, #0d1114); box-shadow: 0 0 0 1.5px #3a4349 inset, 0 40px 80px -20px rgba(6, 25, 35, .45), 0 18px 40px -18px rgba(6, 25, 35, .35); position: relative; }
+.screen { position: relative; width: 100%; height: 100%; border-radius: 50px; overflow: hidden; isolation: isolate; }
+
+.link { width: 120px; align-self: center; margin-top: -40px; position: relative; height: 60px; }
+.link svg { width: 100%; height: 100%; overflow: visible; }
+.link line { stroke: color-mix(in srgb, var(--stage-ink) 18%, transparent); stroke-width: 1.5; stroke-dasharray: 3 5; }
+.link .pkt { fill: var(--cyan); filter: drop-shadow(0 0 6px var(--cyan)); opacity: 0; }
+.link .lbl { position: absolute; left: 0; right: 0; top: 40px; text-align: center; font: 500 10px/1.3 var(--mono); letter-spacing: .08em; color: var(--stage-dim); text-transform: uppercase; }
+.foot { text-align: center; color: var(--stage-dim); font-size: 12.5px; padding: 0 16px 32px; max-width: 760px; margin: 0 auto; line-height: 1.55; }
+
+/* =====================================================================
+   SHARED DEVICE CHROME (status bar, Dynamic Island, nav, tabs, sheets)
+   ===================================================================== */
+.sb { position: absolute; top: 0; left: 0; right: 0; height: 54px; z-index: 40; display: flex; align-items: center; justify-content: space-between; padding: 0 32px 0 44px; font-weight: 600; font-size: 16px; pointer-events: none; }
+.sb-icons { display: flex; gap: 6px; align-items: center; }
+.sb-icons svg { height: 12px; fill: currentColor; }
+.island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 124px; height: 36px; border-radius: 22px; background: #000; z-index: 50; transition: width .5s var(--spring), height .5s var(--spring), border-radius .5s var(--spring); overflow: hidden; color: #fff; pointer-events: auto; }
+.island.open { width: calc(100% - 22px); height: 76px; border-radius: 30px; }
+.isl { position: absolute; inset: 0; display: flex; align-items: center; gap: 12px; padding: 0 18px; opacity: 0; transition: opacity .2s; }
+.island.open .isl { opacity: 1; transition-delay: .18s; }
+.isl .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--brand); flex: none; }
+.isl .av.red { background: #ff453a; }
+.isl b { display: block; font-size: 15px; }
+.isl span { font-size: 13px; color: #a5b4bb; }
+.isl .eta { margin-left: auto; font: 600 15px var(--mono); color: var(--cyan); }
+
+.navbar { position: absolute; top: 0; left: 0; right: 0; height: 98px; z-index: 30; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; font-weight: 600; font-size: 17px; opacity: 0; transition: opacity .2s; pointer-events: none; -webkit-backdrop-filter: saturate(1.8) blur(20px); backdrop-filter: saturate(1.8) blur(20px); }
+.navbar.show { opacity: 1; }
+.pages { position: absolute; inset: 0; }
+.page { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 62px 16px 110px; opacity: 0; visibility: hidden; transition: opacity .22s; scrollbar-width: none; overscroll-behavior: contain; }
+.page::-webkit-scrollbar { display: none; }
+.page.active { opacity: 1; visibility: visible; }
+.lt { font-size: 2em; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; margin: 0; }
+.lt-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.sub { margin: 6px 0 0; font-size: .88em; line-height: 1.45; }
+.sec { font-size: .78em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin: 26px 4px 8px; }
+
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 88px; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 8px 8px 30px; -webkit-backdrop-filter: saturate(1.8) blur(20px); backdrop-filter: saturate(1.8) blur(20px); }
+.tab { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; transition: color .15s, transform .12s; position: relative; }
+.tab .ic { width: 25px; height: 25px; stroke-width: 1.9; }
+.tab:active { transform: scale(.92); }
+.tab .dot { position: absolute; top: -2px; left: calc(50% + 8px); min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: #ff453a; color: #fff; font-size: 11px; display: none; place-items: center; }
+.tab .dot.on { display: grid; }
+.home-ind { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; z-index: 45; pointer-events: none; }
+
+.layer { position: absolute; inset: 0; z-index: 60; pointer-events: none; }
+.backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .35s; }
+.layer.open { pointer-events: auto; }
+.layer.open .backdrop { opacity: 1; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 90%; border-radius: 22px 22px 0 0; transform: translateY(105%); transition: transform .5s var(--spring); display: flex; flex-direction: column; box-shadow: 0 -10px 40px rgba(0,0,0,.2); }
+.layer.open .sheet { transform: translateY(0); }
+.sheet.dragging { transition: none; }
+.grab { padding: 8px 0 4px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+.grab i { width: 38px; height: 5px; border-radius: 3px; display: block; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 10px; touch-action: none; }
+.sheet-head h2 { margin: 0; font-size: 1.1em; font-weight: 700; }
+.sheet-body { padding: 0 16px 34px; overflow-y: auto; scrollbar-width: none; }
+.x { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; }
+.x .ic { width: 15px; height: 15px; stroke-width: 2.6; }
+
+.press { transition: transform .14s var(--spring), background .2s; }
+.press:active { transform: scale(.97); }
+
+/* =====================================================================
+   PATIENT APP (Apple-calm, light + dark, Dynamic Type)
+   ===================================================================== */
+.pa {
+  --bg: #f2f4f6; --card: #fff; --card-2: #f6f8f9; --ink: #0b1b22; --ink-2: #4b5b64; --ink-3: #5f6f78;
+  --sep: rgba(60, 80, 90, .14); --tint: #0A4D68; --tint-soft: #e2f0f5; --accent: #0b6e86;
+  --red: #d92d20; --red-soft: #fdecea; --amber: #a15c07; --amber-soft: #fff4e0; --green: #067647; --green-soft: #e6f6ed;
+  --chrome: rgba(242, 244, 246, .78); --sheet: #fff; --grab: #c9d2d7;
+  --dt: 1;
+  font-size: calc(17px * var(--dt));
+  background: var(--bg); color: var(--ink); font-family: var(--sys);
+}
+@media (prefers-color-scheme: dark) {
+  .pa { --bg: #000; --card: #121b1f; --card-2: #182429; --ink: #eef5f7; --ink-2: #a9bcc3; --ink-3: #93a9b1; --sep: rgba(255,255,255,.1); --tint: #22d3ee; --tint-soft: rgba(34,211,238,.13); --accent: #67e8f9; --red: #ff6961; --red-soft: rgba(255,105,97,.14); --amber: #ffc94d; --amber-soft: rgba(255,201,77,.12); --green: #5fe39b; --green-soft: rgba(95,227,155,.12); --chrome: rgba(10,14,16,.78); --sheet: #121b1f; --grab: #3b4a50; color-scheme: dark; }
+}
+.pa .sb { color: var(--ink); }
+.pa .navbar, .pa .tabbar { background: var(--chrome); }
+.pa .navbar { border-bottom: .5px solid var(--sep); }
+.pa .tabbar { border-top: .5px solid var(--sep); }
+.pa .tab { color: var(--ink-3); }
+.pa .tab[aria-selected="true"] { color: var(--tint); }
+.pa .home-ind { background: var(--ink); opacity: .85; }
+.pa .sub, .pa .sec { color: var(--ink-3); }
+.pa .sheet { background: var(--sheet); color: var(--ink); }
+.pa .grab i { background: var(--grab); }
+.pa .x { background: var(--card-2); color: var(--ink-2); }
+
+.aa { font-weight: 700; font-size: .9em; width: 44px; height: 36px; border-radius: 12px; background: var(--card); color: var(--tint); box-shadow: 0 1px 2px rgba(0,0,0,.06); flex: none; }
+.card { background: var(--card); border-radius: 18px; padding: 16px; }
+.card + .card { margin-top: 12px; }
+.list { background: var(--card); border-radius: 18px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; width: 100%; text-align: left; min-height: 52px; position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 60px; right: 0; border-top: .5px solid var(--sep); }
+.row.noicon + .row.noicon::before { left: 16px; }
+.row .t { font-weight: 600; font-size: .94em; }
+.row .d { font-size: .8em; color: var(--ink-3); margin-top: 1px; }
+.row .grow { flex: 1; min-width: 0; }
+.row .chev { color: var(--ink-3); width: 1em; height: 1em; opacity: .7; }
+.row:active { background: var(--card-2); }
+.glyph { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; flex: none; }
+.glyph .ic { width: 18px; height: 18px; }
+
+/* Care team strip */
+.team { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 18px -16px 0; padding: 0 16px; }
+.team::-webkit-scrollbar { display: none; }
+.person { flex: none; background: var(--card); border-radius: 18px; padding: 12px 14px 12px 12px; display: flex; gap: 10px; align-items: center; min-width: 172px; text-align: left; }
+.person .av { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; background: var(--c, #0A4D68); position: relative; }
+.person .av.on::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%; background: #30d158; border: 2.5px solid var(--card); }
+.person b { display: block; font-size: .92em; }
+.person span { font-size: .76em; color: var(--ink-3); }
+
+/* Timeline */
+.tl { list-style: none; margin: 0; padding: 4px 0; }
+.tl li { display: grid; grid-template-columns: 70px 14px 1fr; gap: 10px; padding: 10px 16px; align-items: start; }
+.tl .time { font-weight: 600; font-size: .86em; color: var(--ink-2); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.tl .node { width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid var(--tint); margin-top: 5px; position: relative; }
+.tl li:not(:last-child) .node::after { content: ""; position: absolute; left: 50%; top: 11px; width: 2px; height: 44px; background: var(--sep); transform: translateX(-50%); }
+.tl li.now .node { background: var(--tint); box-shadow: 0 0 0 4px var(--tint-soft); }
+.tl b { font-size: .94em; }
+.tl p { margin: 2px 0 0; font-size: .82em; color: var(--ink-3); line-height: 1.4; }
+
+/* Rings */
+.ring-card { display: flex; align-items: center; gap: 16px; }
+.ring { width: 84px; height: 84px; flex: none; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .trk { stroke: var(--card-2); }
+.ring .val { stroke: url(#g-ring); transition: stroke-dashoffset .8s var(--spring); }
+.ring .over { stroke: var(--amber); }
+.ring .c { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-weight: 800; font-size: 1.05em; line-height: 1; }
+.ring .c small { display: block; font-size: .55em; font-weight: 600; color: var(--ink-3); margin-top: 3px; }
+.pill-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 18px; font-weight: 600; font-size: .85em; background: var(--tint-soft); color: var(--tint); }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--card); border-radius: 16px; padding: 12px; }
+.stat .k { font-size: .72em; color: var(--ink-3); font-weight: 600; }
+.stat .v { font-size: 1.15em; font-weight: 800; letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.stat .n { font-size: .72em; color: var(--green); font-weight: 600; margin-top: 2px; }
+
+.sos { margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; background: var(--red-soft); color: var(--ink); border-radius: 18px; padding: 14px 16px; font-size: .84em; line-height: 1.45; }
+.sos .ic { color: var(--red); margin-top: 2px; }
+
+/* Help tiles */
+.worse { width: 100%; margin-top: 18px; display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 20px; background: var(--red-soft); text-align: left; }
+.worse .glyph { background: var(--red); width: 44px; height: 44px; border-radius: 14px; }
+.worse .glyph .ic { width: 24px; height: 24px; }
+.worse b { font-size: 1.02em; color: var(--red); display: block; }
+.worse b + span { font-size: .8em; color: var(--ink-2); }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.tile { background: var(--card); border-radius: 20px; padding: 14px; text-align: left; display: flex; flex-direction: column; gap: 10px; min-height: 108px; }
+.tile .glyph { width: 38px; height: 38px; border-radius: 12px; }
+.tile .glyph .ic { width: 21px; height: 21px; stroke-width: 2.2; }
+.tile b { font-size: .94em; line-height: 1.2; }
+.tile > span:last-child { font-size: .72em; color: var(--ink-3); margin-top: -6px; }
+
+/* Request tracker */
+.req { background: var(--card); border-radius: 18px; padding: 14px 16px; animation: drop .5s var(--spring); }
+.req + .req { margin-top: 10px; }
+@keyframes drop { from { transform: translateY(-8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.req.urgent { box-shadow: inset 0 0 0 2px var(--red); }
+.req-top { display: flex; align-items: center; gap: 10px; }
+.req-top .grow { flex: 1; min-width: 0; }
+.req-top b { font-size: .94em; }
+.req-top .who { font-size: .78em; color: var(--ink-3); }
+.req-eta { font-weight: 800; font-size: .95em; color: var(--tint); font-variant-numeric: tabular-nums; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 12px; }
+.steps i { height: 4px; border-radius: 2px; background: var(--card-2); position: relative; overflow: hidden; }
+.steps i.on { background: var(--tint); }
+.steps i.cur::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent); animation: sweep 1.4s infinite; }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.steps-l { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 6px; font-size: .66em; color: var(--ink-3); font-weight: 600; }
+.steps-l .on { color: var(--ink); }
+.req-note { margin-top: 10px; font-size: .8em; padding: 9px 11px; border-radius: 12px; background: var(--amber-soft); color: var(--ink); line-height: 1.4; }
+.req-note.red { background: var(--red-soft); }
+.rate { display: flex; gap: 8px; margin-top: 12px; align-items: center; font-size: .82em; color: var(--ink-2); }
+.rate button { height: 34px; padding: 0 12px; border-radius: 17px; background: var(--card-2); font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+.empty { text-align: center; padding: 22px 16px; color: var(--ink-3); font-size: .86em; background: var(--card); border-radius: 18px; }
+
+/* Segmented */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--card-2); padding: 2px; border-radius: 10px; margin-top: 16px; }
+.seg button { height: 32px; border-radius: 8px; font-weight: 600; font-size: .82em; color: var(--ink-2); }
+.seg button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+/* Results range bar */
+.res { padding: 14px 16px; }
+.res + .res { border-top: .5px solid var(--sep); }
+.res-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.res-top b { font-size: .95em; }
+.res-top .v { font-weight: 800; font-size: 1.05em; font-variant-numeric: tabular-nums; }
+.res-top .v small { font-size: .65em; font-weight: 600; color: var(--ink-3); }
+.range { position: relative; height: 8px; border-radius: 4px; background: var(--card-2); margin: 12px 0 6px; }
+.range .band { position: absolute; top: 0; bottom: 0; background: var(--green-soft); border: 1.5px solid var(--green); border-radius: 4px; opacity: .9; }
+.range .mk { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--card); border: 3px solid var(--tint); box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.range .mk.hi { border-color: var(--amber); }
+.res p { margin: 6px 0 0; font-size: .82em; color: var(--ink-2); line-height: 1.45; }
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: .7em; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
+.tag.ok { background: var(--green-soft); color: var(--green); }
+.tag.hi { background: var(--amber-soft); color: var(--amber); }
+.tag.neu { background: var(--tint-soft); color: var(--tint); }
+.tag .ic { width: 1em; height: 1em; }
+
+/* Checklist */
+.check { display: flex; gap: 12px; align-items: flex-start; padding: 13px 16px; width: 100%; text-align: left; }
+.check + .check { border-top: .5px solid var(--sep); }
+.check .box { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--sep); display: grid; place-items: center; flex: none; transition: background .25s, border-color .25s; }
+.check .box .ic { width: 15px; height: 15px; stroke-width: 3; color: #fff; opacity: 0; transform: scale(.4); transition: all .3s var(--spring); }
+.check[aria-checked="true"] .box { background: var(--green); border-color: var(--green); }
+.check[aria-checked="true"] .box .ic { opacity: 1; transform: none; }
+.check b { font-size: .92em; display: block; }
+.check span { font-size: .78em; color: var(--ink-3); }
+
+.zones { display: grid; gap: 8px; }
+.zone { border-radius: 16px; padding: 12px 14px; font-size: .82em; line-height: 1.45; border-left: 5px solid; background: var(--card); }
+.zone b { display: block; font-size: 1.05em; margin-bottom: 2px; }
+.zone.g { border-color: #30d158; } .zone.y { border-color: #ffb020; } .zone.r { border-color: #ff453a; }
+.srcline { display: flex; gap: 6px; align-items: center; font-size: .72em; color: var(--ink-3); margin-top: 10px; }
+.srcline .ic { width: 1.1em; height: 1.1em; }
+
+/* Sheet controls (patient) */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { height: 40px; padding: 0 16px; border-radius: 20px; background: var(--card-2); font-weight: 600; font-size: .86em; }
+.chip[aria-pressed="true"] { background: var(--tint); color: #fff; }
+@media (prefers-color-scheme: dark) { .chip[aria-pressed="true"] { color: #00222b; } }
+.field-l { font-size: .8em; font-weight: 700; color: var(--ink-2); margin: 18px 0 8px; display: block; }
+.pain-n { display: flex; align-items: baseline; gap: 10px; }
+.pain-n .big { font-size: 3em; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1; }
+.pain-n .w { font-weight: 600; color: var(--ink-2); }
+input[type="range"].pain { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; background: transparent; }
+input[type="range"].pain::-webkit-slider-runnable-track { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #30d158, #ffd60a 50%, #ff453a); }
+input[type="range"].pain::-moz-range-track { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #30d158, #ffd60a 50%, #ff453a); }
+input[type="range"].pain::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: #fff; margin-top: -11px; box-shadow: 0 2px 8px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.1); }
+input[type="range"].pain::-moz-range-thumb { width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.scale-l { display: flex; justify-content: space-between; font-size: .72em; color: var(--ink-3); font-weight: 600; }
+.info { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--tint-soft); font-size: .84em; line-height: 1.45; margin-top: 16px; }
+.info .ic { color: var(--tint); margin-top: 1px; }
+.info.warn { background: var(--amber-soft); } .info.warn .ic { color: var(--amber); }
+.info.red { background: var(--red-soft); } .info.red .ic { color: var(--red); }
+.cta { width: 100%; height: 54px; border-radius: 16px; background: var(--tint); color: #fff; font-weight: 700; font-size: 1em; margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+@media (prefers-color-scheme: dark) { .pa .cta { color: #00222b; } }
+.cta.red { background: var(--red); color: #fff; }
+.cta.ghost { background: var(--card-2); color: var(--ink); height: 48px; margin-top: 10px; }
+.yn { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: .5px solid var(--sep); }
+.yn b { font-size: .94em; }
+.yn .chips { flex-wrap: nowrap; }
+.yn .chip { height: 36px; padding: 0 14px; }
+.yn .chip[aria-pressed="true"][data-v="yes"] { background: var(--red); color: #fff; }
+textarea.ta-in { width: 100%; min-height: 84px; border-radius: 14px; border: 0; background: var(--card-2); padding: 12px 14px; font-size: .9em; resize: none; outline: none; }
+textarea.ta-in:focus { box-shadow: 0 0 0 3px var(--tint-soft); }
+.qa-a { background: var(--card-2); border-radius: 16px; padding: 14px; font-size: .9em; line-height: 1.5; margin-top: 12px; animation: drop .4s var(--spring); }
+.qa-q { margin-left: auto; width: fit-content; max-width: 85%; background: var(--tint); color: #fff; border-radius: 18px 18px 4px 18px; padding: 9px 14px; font-size: .9em; margin-top: 14px; animation: drop .3s var(--spring); }
+@media (prefers-color-scheme: dark) { .qa-q { color: #00222b; } }
+.typing { display: inline-flex; gap: 4px; padding: 4px 0; }
+.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); animation: blink 1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
+/* =====================================================================
+   CARE TEAM APP (mission control: dark, telemetry, zero ambiguity)
+   ===================================================================== */
+.ta {
+  --bg: #050b0e; --panel: #0b161b; --panel-2: #11202700; --raise: #102026; --line: #18303a; --ink: #e8f3f6; --ink-2: #a6bcc4; --ink-3: #7f99a3;
+  --cy: #22d3ee; --red: #ff5d52; --amber: #fbbf24; --green: #4ade80;
+  font-size: 16px; background: var(--bg); color: var(--ink); font-family: var(--sys); color-scheme: dark;
+}
+.ta .sb { color: var(--ink); }
+.ta .navbar, .ta .tabbar { background: rgba(5, 11, 14, .8); }
+.ta .navbar { border-bottom: 1px solid var(--line); }
+.ta .tabbar { border-top: 1px solid var(--line); }
+.ta .tab { color: var(--ink-3); }
+.ta .tab[aria-selected="true"] { color: var(--cy); }
+.ta .home-ind { background: #fff; opacity: .8; }
+.ta .sec { color: var(--ink-3); font-family: var(--mono); font-weight: 500; letter-spacing: .12em; font-size: 11px; display: flex; justify-content: space-between; }
+.ta .sheet { background: #0b161b; color: var(--ink); border-top: 1px solid var(--line); }
+.ta .grab i { background: #2a434d; }
+.ta .x { background: var(--raise); color: var(--ink-2); }
+.ta .page { background: radial-gradient(120% 50% at 50% 0%, rgba(10, 77, 104, .35), transparent 70%); }
+
+.ops { font: 500 10.5px/1 var(--mono); letter-spacing: .12em; color: var(--ink-3); display: flex; justify-content: space-between; margin-top: 6px; }
+.ops .live { color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
+.ops .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; animation: blink 2s infinite; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+.kpi { border: 1px solid var(--line); background: rgba(11, 22, 27, .7); border-radius: 14px; padding: 11px 12px; }
+.kpi .k { font: 500 9.5px/1.2 var(--mono); letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+.kpi .v { font: 600 26px/1 var(--mono); margin-top: 8px; letter-spacing: -.02em; }
+.kpi.alert .v { color: var(--red); }
+.kpi.good .v { color: var(--green); }
+.kpi .v small { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+
+.qcard { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 14px; animation: drop .5s var(--spring); position: relative; overflow: hidden; }
+.qcard + .qcard { margin-top: 10px; }
+.qcard.urgent { border-color: rgba(255, 93, 82, .6); background: linear-gradient(180deg, rgba(255, 93, 82, .12), var(--panel) 60%); }
+.qcard.urgent::before { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--red); animation: alarm 1.2s infinite; pointer-events: none; }
+@keyframes alarm { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+.q-top { display: flex; align-items: center; gap: 8px; font: 600 11px var(--mono); letter-spacing: .08em; }
+.q-bed { background: var(--raise); padding: 4px 7px; border-radius: 6px; color: var(--ink); }
+.q-type { color: var(--cy); }
+.qcard.urgent .q-type { color: var(--red); }
+.q-age { margin-left: auto; color: var(--ink-3); font-weight: 500; }
+.q-name { font-weight: 700; font-size: 17px; margin-top: 10px; letter-spacing: -.01em; }
+.q-name span { font-weight: 500; color: var(--ink-2); }
+.q-ctx { margin-top: 8px; font-size: 13px; color: var(--ink-2); line-height: 1.45; display: grid; gap: 4px; }
+.q-ctx div { display: flex; gap: 8px; }
+.q-ctx .k { font: 500 10.5px/1.9 var(--mono); color: var(--ink-3); letter-spacing: .06em; width: 52px; flex: none; }
+.q-ctx b.ok { color: var(--green); font-weight: 600; }
+.q-ctx b.bad { color: var(--red); font-weight: 600; }
+.q-ctx b.warn { color: var(--amber); font-weight: 600; }
+.q-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.q-tags span { font: 500 10.5px var(--mono); letter-spacing: .05em; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-2); }
+.q-tags span.w { border-color: rgba(251, 191, 36, .45); color: var(--amber); }
+.q-act { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 12px; }
+.btn-ops { height: 46px; border-radius: 13px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 7px; background: var(--raise); border: 1px solid var(--line); }
+.btn-ops.pri { background: var(--cy); color: #03222c; border-color: var(--cy); }
+.btn-ops.red { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-ops.done { background: var(--green); color: #052e16; border-color: var(--green); }
+.enroute { font: 600 11px var(--mono); color: var(--cy); letter-spacing: .08em; display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+
+.mini { display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+.mini:last-child { border-bottom: 0; }
+.mini .t { font: 500 11.5px var(--mono); color: var(--ink-3); width: 44px; flex: none; }
+.mini .b { font: 600 10.5px var(--mono); background: var(--raise); padding: 3px 6px; border-radius: 5px; flex: none; }
+.mini .grow { flex: 1; min-width: 0; }
+.mini .grow small { display: block; color: var(--ink-3); font-size: 11.5px; }
+.mini .st { font: 600 10.5px var(--mono); letter-spacing: .06em; flex: none; }
+.mini .st.ok { color: var(--green); } .mini .st.go { color: var(--cy); } .mini .st.hold { color: var(--amber); }
+.panel { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; overflow: hidden; }
+
+/* Voice charting */
+.mic-wrap { display: grid; place-items: center; margin-top: 22px; gap: 14px; }
+.mic { width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #5fe6fa, #0A4D68 75%); display: grid; place-items: center; color: #fff; box-shadow: 0 0 0 10px rgba(34, 211, 238, .08), 0 0 40px rgba(34, 211, 238, .35); transition: transform .2s var(--spring); }
+.mic .ic { width: 38px; height: 38px; }
+.mic.rec { background: radial-gradient(circle at 30% 30%, #ff8a80, #b42318 75%); box-shadow: 0 0 0 10px rgba(255, 93, 82, .12), 0 0 50px rgba(255, 93, 82, .45); animation: breathe 1.4s infinite; }
+@keyframes breathe { 50% { transform: scale(1.05); } }
+.wave { display: flex; gap: 3px; align-items: center; height: 34px; }
+.wave i { width: 3px; border-radius: 2px; background: var(--cy); height: 4px; transition: height .12s; }
+.transcript { font-size: 15px; line-height: 1.55; color: var(--ink-2); min-height: 48px; margin-top: 16px; padding: 14px; border: 1px dashed var(--line); border-radius: 14px; }
+.transcript .w { color: var(--ink); }
+.field { border: 1px solid var(--line); background: var(--panel); border-radius: 14px; padding: 12px 14px; animation: drop .45s var(--spring) both; }
+.field + .field { margin-top: 8px; }
+.field .fk { font: 600 10.5px var(--mono); letter-spacing: .1em; color: var(--cy); display: flex; justify-content: space-between; }
+.field .fk span { color: var(--ink-3); font-weight: 500; }
+.field .fv { font-size: 14.5px; margin-top: 6px; line-height: 1.45; }
+.match { font-size: 12.5px; color: var(--amber); margin-top: 6px; display: flex; gap: 6px; }
+
+.big-n { font: 600 54px/1 var(--mono); letter-spacing: -.04em; color: var(--green); }
+.ta .card-o { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 16px; }
+.ta .card-o + .card-o { margin-top: 10px; }
+.bar { height: 8px; border-radius: 4px; background: var(--raise); overflow: hidden; margin-top: 10px; display: flex; }
+.bar i { display: block; height: 100%; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; font: 500 11px var(--mono); color: var(--ink-2); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.ta a.linkbtn { display: flex; align-items: center; justify-content: space-between; color: var(--ink); text-decoration: none; font-weight: 600; padding: 14px 16px; }
+.ta a.linkbtn small { display: block; color: var(--ink-3); font-weight: 500; font-size: 12.5px; }
+
+.toast-in { position: absolute; left: 12px; right: 12px; bottom: 100px; z-index: 70; padding: 12px 14px; border-radius: 16px; font-size: 14px; font-weight: 600; display: flex; gap: 10px; align-items: center; transform: translateY(20px); opacity: 0; transition: all .45s var(--spring); pointer-events: none; }
+.toast-in.show { transform: none; opacity: 1; }
+.pa .toast-in { background: #0b1b22; color: #fff; }
+.ta .toast-in { background: var(--green); color: #052e16; }
+
+/* =====================================================================
+   RESPONSIVE: phones get one full-screen app + a switcher
+   ===================================================================== */
+@media (max-width: 860px) {
+  .stage-head { padding: 14px 16px 6px; }
+  .stage-head p, .hint, .stage-head h1 { display: none; }
+  .switch { display: flex; }
+  .stage { padding: 10px 0 0; }
+  .link { display: none; }
+  .dev-col figcaption { display: none; }
+  .dev-col { display: none; width: 100%; }
+  .dev-col.show { display: flex; }
+  .scaler { width: 100% !important; height: calc(100dvh - 88px) !important; }
+  .device { width: 100%; height: 100%; transform: none; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  .screen { border-radius: 0; }
+  .sb { display: none; }
+  .island { top: 6px; width: 0; height: 0; }
+  .island.open { width: calc(100% - 16px); height: 72px; }
+  .page { padding-top: 18px; }
+  .navbar { height: 52px; padding-bottom: 14px; }
+  .foot { display: none; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs><linearGradient id="g-ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#0A4D68"/></linearGradient></defs>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="m9 20 3-6 3 3v4M6 12l3-4 4 1 3 3 3 1M10 8l-1 6"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-temp" viewBox="0 0 24 24"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></symbol>
+  <symbol id="i-bed" viewBox="0 0 24 24"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></symbol>
+  <symbol id="i-iv" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="11" rx="2"/><path d="M12 13v4M12 17c0 3 3 3 3 5M10 6h4M10 9h4"/></symbol>
+  <symbol id="i-food" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 10.6l-6.1 1.9L12 18.3l-1.9-5.8L4 10.6l6.1-1.8Z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-pill" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-scale" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8 10a5 5 0 0 1 8 0M12 10l1.5-2"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2v-5l-2.5-5h-13L3 12v5h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-thumb" viewBox="0 0 24 24"><path d="M7 10v12M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="sb-sig" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></symbol>
+  <symbol id="sb-bat" viewBox="0 0 27 12"><rect x=".5" y=".5" width="23" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="17" height="8" rx="2"/><rect x="24.5" y="4" width="2" height="4" rx="1" opacity=".4"/></symbol>
+</svg>
+
+<header class="stage-head">
+  <div class="mark"><i>N</i>NOMI Care</div>
+  <h1>The call light, <span>reinvented.</span></h1>
+  <p>Every request goes to the right person in seconds. The patient sees who's coming and when. The nurse gets the context they need before walking in, and the notes are drafted for them. Nurses get their time back for nursing.</p>
+  <div class="hint">Try it: tap <b>Pain</b> on the patient phone, then <b>On my way</b> on the care team phone.</div>
+  <div class="switch" role="group" aria-label="Choose app">
+    <button aria-pressed="true" data-show="pa-col">Patient</button>
+    <button aria-pressed="false" data-show="ta-col">Care team<i class="badge" id="sw-badge"></i></button>
+  </div>
+</header>
+
+<div class="stage">
+  <!-- ============================ PATIENT DEVICE ============================ -->
+  <figure class="dev-col show" id="pa-col" style="margin:0">
+    <div class="scaler"><div class="device"><div class="screen pa" id="pa" aria-label="Patient app">
+      <div class="sb"><span>8:42</span><span class="sb-icons"><svg viewBox="0 0 18 12" width="18"><use href="#sb-sig"/></svg><svg viewBox="0 0 27 12" width="27"><use href="#sb-bat"/></svg></span></div>
+      <div class="island" id="pa-island" role="status" aria-live="polite"><div class="isl"></div></div>
+      <div class="navbar" id="pa-nav" aria-hidden="true"><span></span></div>
+
+      <div class="pages">
+        <!-- TODAY -->
+        <section class="page active" id="pa-today" data-title="Today" aria-label="Today">
+          <div class="lt-row"><h1 class="lt">Good morning, Robert</h1><button class="aa press" id="aa" aria-label="Text size">Aa</button></div>
+          <p class="sub">Sunday, October 18 · Day 2 in hospital · 4 West, Bed 12</p>
+
+          <div class="team" aria-label="Your care team">
+            <button class="person press" data-goto="help"><div class="av on" style="--c:#0A4D68">JA</div><div><b>Jordan</b><span>Your nurse · until 7 PM</span></div></button>
+            <button class="person press" data-goto="help"><div class="av on" style="--c:#0e7490">MO</div><div><b>Maya</b><span>Care assistant</span></div></button>
+            <div class="person"><div class="av" style="--c:#475569">AM</div><div><b>Dr. Morgan</b><span>Your doctor</span></div></div>
+          </div>
+
+          <h2 class="sec">Coming up</h2>
+          <div class="list">
+            <ol class="tl">
+              <li class="now"><span class="time">9:00 AM</span><span class="node"></span><div><b>Morning medicines</b><p>Jordan will bring them. One may change today. See Health.</p></div></li>
+              <li><span class="time">11:30 AM</span><span class="node"></span><div><b>Heart ultrasound</b><p>About 45 minutes. It doesn't hurt. Someone will come to get you.</p></div></li>
+              <li><span class="time">2:00 PM</span><span class="node"></span><div><b>Short walk with physical therapy</b><p>Please don't walk alone yet.</p></div></li>
+              <li><span class="time">6:00 AM</span><span class="node"></span><div><b>Weigh-in and blood test</b><p>Tomorrow, before breakfast.</p></div></li>
+            </ol>
+          </div>
+
+          <h2 class="sec">Today's fluid limit</h2>
+          <div class="card ring-card">
+            <div class="ring" id="fluid-ring"><svg viewBox="0 0 84 84"><circle class="trk" cx="42" cy="42" r="35" fill="none" stroke-width="10"/><circle class="val" cx="42" cy="42" r="35" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="219.9" stroke-dashoffset="219.9"/></svg><div class="c"><span id="fluid-v">0.6 L</span><small>of 1.5 L</small></div></div>
+            <div style="flex:1">
+              <b style="font-size:.95em">Your doctor set a fluid limit</b>
+              <p class="sub" style="margin-top:4px" id="fluid-msg">That's about 4 cups left today, including soup and ice.</p>
+              <button class="pill-btn press" id="add-cup" style="margin-top:10px"><svg class="ic"><use href="#i-plus"/></svg>Log a cup</button>
+            </div>
+          </div>
+
+          <h2 class="sec">How you're doing</h2>
+          <div class="stats">
+            <div class="stat"><div class="k">Breathing</div><div class="v">Easier</div><div class="n">than yesterday</div></div>
+            <div class="stat"><div class="k">Weight</div><div class="v">185.4<small style="font-size:.55em"> lb</small></div><div class="n">−2.0 lb so far</div></div>
+            <div class="stat"><div class="k">Oxygen</div><div class="v">94%</div><div class="n" style="color:var(--ink-3)">on a little O₂</div></div>
+          </div>
+
+          <div class="sos"><svg class="ic"><use href="#i-alert"/></svg><div><b>Hard to breathe or chest pain?</b> Press the red call button on your bed, or tap <b>I feel worse</b> in Help. Don't wait.</div></div>
+        </section>
+
+        <!-- HELP -->
+        <section class="page" id="pa-help" data-title="Help" aria-label="Help">
+          <div class="lt-row"><h1 class="lt">How can we help?</h1></div>
+          <p class="sub">Your request goes straight to the right person. You'll see who's coming and when.</p>
+
+          <button class="worse press" data-req="worse"><span class="glyph"><svg class="ic"><use href="#i-alert"/></svg></span><span><b>I feel worse</b><span>Goes to your nurse right away</span></span></button>
+
+          <div class="tiles">
+            <button class="tile press" data-req="pain"><span class="glyph" style="background:#e5484d"><svg class="ic"><use href="#i-zap"/></svg></span><b>Pain</b><span>Jordan · nurse</span></button>
+            <button class="tile press" data-req="bathroom"><span class="glyph" style="background:#0A4D68"><svg class="ic"><use href="#i-walk"/></svg></span><b>Bathroom help</b><span>Maya · care assistant</span></button>
+            <button class="tile press" data-req="water"><span class="glyph" style="background:#0ea5c6"><svg class="ic"><use href="#i-drop"/></svg></span><b>Water or ice</b><span>Maya · care assistant</span></button>
+            <button class="tile press" data-req="reposition"><span class="glyph" style="background:#6366f1"><svg class="ic"><use href="#i-bed"/></svg></span><b>Move in bed</b><span>Maya · care assistant</span></button>
+            <button class="tile press" data-req="temp"><span class="glyph" style="background:#f59e0b"><svg class="ic"><use href="#i-temp"/></svg></span><b>Too hot or cold</b><span>Maya · care assistant</span></button>
+            <button class="tile press" data-req="iv"><span class="glyph" style="background:#8b5cf6"><svg class="ic"><use href="#i-iv"/></svg></span><b>IV is beeping</b><span>Jordan · nurse</span></button>
+            <button class="tile press" data-req="food"><span class="glyph" style="background:#16a34a"><svg class="ic"><use href="#i-food"/></svg></span><b>Food &amp; menu</b><span>Nutrition team</span></button>
+            <button class="tile press" data-req="clean"><span class="glyph" style="background:#64748b"><svg class="ic"><use href="#i-spark"/></svg></span><b>Room cleaning</b><span>Housekeeping</span></button>
+          </div>
+
+          <h2 class="sec">Your requests</h2>
+          <div id="pa-reqs" aria-live="polite"><div class="empty">No open requests. When you ask for something, you'll see it here, live.</div></div>
+
+          <h2 class="sec">Questions</h2>
+          <div class="list">
+            <button class="row press" data-sheet="ask"><span class="glyph" style="background:var(--tint)"><svg class="ic"><use href="#i-chat"/></svg></span><span class="grow"><span class="t">Ask a question</span><span class="d" style="display:block">Answers come from your care plan. Anything else goes to Jordan.</span></span><svg class="ic chev"><use href="#i-chev"/></svg></button>
+            <button class="row press" data-req="other"><span class="glyph" style="background:#475569"><svg class="ic"><use href="#i-bell"/></svg></span><span class="grow"><span class="t">Something else</span></span><svg class="ic chev"><use href="#i-chev"/></svg></button>
+          </div>
+        </section>
+
+        <!-- HEALTH -->
+        <section class="page" id="pa-health" data-title="Health" aria-label="Health">
+          <div class="lt-row"><h1 class="lt">Health</h1></div>
+          <div class="seg" role="tablist" aria-label="Health sections">
+            <button role="tab" aria-selected="true" data-seg="meds">Medicines</button>
+            <button role="tab" aria-selected="false" data-seg="results">Test results</button>
+          </div>
+
+          <div id="seg-meds">
+            <h2 class="sec">Next · 9:00 AM</h2>
+            <div class="list" id="meds-9"></div>
+            <h2 class="sec">Later today</h2>
+            <div class="list" id="meds-later"></div>
+            <h2 class="sec">Only if you need it</h2>
+            <div class="list" id="meds-prn"></div>
+          </div>
+
+          <div id="seg-results" hidden>
+            <div class="info" style="margin-top:16px"><svg class="ic"><use href="#i-shield"/></svg><div>You chose to see results <b>after your care team has reviewed them</b>, with a plain-language note. <button style="color:var(--tint);font-weight:600" id="res-pref">Change</button></div></div>
+            <h2 class="sec">This morning · reviewed by Dr. Morgan</h2>
+            <div class="list" id="results"></div>
+          </div>
+        </section>
+
+        <!-- GOING HOME -->
+        <section class="page" id="pa-home" data-title="Going home" aria-label="Going home">
+          <div class="lt-row"><h1 class="lt">Going home</h1></div>
+          <p class="sub">Your team hasn't set a date yet. Here's what needs to be ready, and what you can do now.</p>
+
+          <div class="card ring-card" style="margin-top:16px">
+            <div class="ring" id="ready-ring"><svg viewBox="0 0 84 84"><circle class="trk" cx="42" cy="42" r="35" fill="none" stroke-width="10"/><circle class="val" cx="42" cy="42" r="35" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="219.9" stroke-dashoffset="219.9"/></svg><div class="c"><span id="ready-v">2/6</span><small>ready</small></div></div>
+            <div><b style="font-size:.95em">Getting ready</b><p class="sub" style="margin-top:4px">Your team is watching your breathing, your weight, and one blood test (potassium).</p></div>
+          </div>
+
+          <h2 class="sec">Checklist</h2>
+          <div class="list" id="ready-list"></div>
+
+          <h2 class="sec">At home: weigh yourself every morning</h2>
+          <div class="card">
+            <p style="margin:0;font-size:.9em;line-height:1.5">After you pee, before breakfast, same scale, similar clothes. Log it in the app and we'll watch the trend with you.</p>
+            <div class="zones" style="margin-top:12px">
+              <div class="zone g"><b>Green: doing well</b>No new shortness of breath. Weight steady. No new swelling.</div>
+              <div class="zone y"><b>Yellow: call your clinic today</b>Weight up 2–3 lb in a day or 5 lb in a week. More swelling, a new cough, or more short of breath.</div>
+              <div class="zone r"><b>Red: call 911</b>Struggling to breathe, chest pain, or fainting.</div>
+            </div>
+            <div class="srcline"><svg class="ic"><use href="#i-shield"/></svg>Based on American Heart Association guidance. Your doctor may give you different numbers.</div>
+          </div>
+        </section>
+      </div>
+
+      <nav class="tabbar" role="tablist" aria-label="Patient app sections">
+        <button class="tab" role="tab" aria-selected="true" data-tab="today"><svg class="ic"><use href="#i-sun"/></svg>Today</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="help"><svg class="ic"><use href="#i-bell"/></svg>Help<i class="dot" id="pa-dot"></i></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="health"><svg class="ic"><use href="#i-heart"/></svg>Health</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="home"><svg class="ic"><use href="#i-home"/></svg>Going home</button>
+      </nav>
+      <div class="home-ind"></div>
+      <div class="toast-in" id="pa-toast" role="status"></div>
+      <div class="layer" id="pa-layer"><div class="backdrop"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pa-sheet-t"><div class="grab"><i></i></div><div class="sheet-head"><h2 id="pa-sheet-t"></h2><button class="x" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div><div class="sheet-body"></div></div></div>
+    </div></div></div>
+    <figcaption><b>Patient</b> · Robert, 68 · bedside tablet or own phone</figcaption>
+  </figure>
+
+  <div class="link" aria-hidden="true">
+    <svg viewBox="0 0 120 20"><line x1="0" y1="10" x2="120" y2="10"/><circle class="pkt" id="pkt" cx="0" cy="10" r="4"/></svg>
+    <div class="lbl" id="link-lbl">Encrypted · real-time</div>
+  </div>
+
+  <!-- ============================ CARE TEAM DEVICE ============================ -->
+  <figure class="dev-col" id="ta-col" style="margin:0">
+    <div class="scaler"><div class="device"><div class="screen ta" id="ta" aria-label="Care team app">
+      <div class="sb"><span>8:42</span><span class="sb-icons"><svg viewBox="0 0 18 12" width="18"><use href="#sb-sig"/></svg><svg viewBox="0 0 27 12" width="27"><use href="#sb-bat"/></svg></span></div>
+      <div class="island" id="ta-island" role="status" aria-live="assertive"><div class="isl"></div></div>
+      <div class="navbar" id="ta-nav" aria-hidden="true"><span></span></div>
+
+      <div class="pages">
+        <!-- NOW -->
+        <section class="page active" id="ta-now" data-title="Now" aria-label="Now">
+          <div class="ops"><span>JORDAN ALVAREZ, RN · 4 WEST</span><span class="live" id="ta-clock">08:42</span></div>
+          <div class="lt-row"><h1 class="lt" style="font-size:34px">Now</h1></div>
+          <div class="kpis">
+            <div class="kpi alert"><div class="k">Needs you</div><div class="v" id="k-need">1</div></div>
+            <div class="kpi good"><div class="k">Team handled</div><div class="v" id="k-team">6</div></div>
+            <div class="kpi"><div class="k">Med pass</div><div class="v">18<small>m</small></div></div>
+          </div>
+
+          <h2 class="sec"><span>NEEDS YOU</span><span>BY CLINICAL PRIORITY</span></h2>
+          <div id="ta-queue" aria-live="polite"></div>
+
+          <h2 class="sec"><span>DUE SOON</span><span id="due-n">3</span></h2>
+          <div class="panel" id="ta-due"></div>
+
+          <h2 class="sec"><span>HANDLED BY YOUR TEAM</span><span>NO INTERRUPTION</span></h2>
+          <div class="panel" id="ta-handled"></div>
+        </section>
+
+        <!-- DOCUMENT -->
+        <section class="page" id="ta-doc" data-title="Chart" aria-label="Chart by voice">
+          <div class="ops"><span>AMBIENT CHARTING</span><span>BED 12 · R. ELLIS</span></div>
+          <div class="lt-row"><h1 class="lt" style="font-size:34px">Chart by voice</h1></div>
+          <p style="color:var(--ink-2);font-size:14.5px;line-height:1.5;margin:6px 0 0">Say what you'd normally type. NOMI structures it, matches it to orders, and you sign. Nothing is filed until you do.</p>
+          <div class="mic-wrap">
+            <button class="mic" id="mic" aria-label="Start dictation"><svg class="ic"><use href="#i-mic"/></svg></button>
+            <div class="wave" id="wave" aria-hidden="true"></div>
+            <div style="font:500 11px var(--mono);letter-spacing:.1em;color:var(--ink-3)" id="mic-l">TAP TO DICTATE ASSESSMENT</div>
+          </div>
+          <div class="transcript" id="transcript" aria-live="polite"><span style="color:var(--ink-3)">Transcript appears here.</span></div>
+          <div id="fields" style="margin-top:12px"></div>
+        </section>
+
+        <!-- SHIFT -->
+        <section class="page" id="ta-shift" data-title="Shift" aria-label="Shift">
+          <div class="ops"><span>SHIFT 07:00 → 19:00</span><span>5 PATIENTS</span></div>
+          <div class="lt-row"><h1 class="lt" style="font-size:34px">Shift</h1></div>
+          <div class="card-o" style="margin-top:16px">
+            <div style="font:500 10.5px var(--mono);letter-spacing:.1em;color:var(--ink-3)">REQUESTS THAT DIDN'T NEED YOU</div>
+            <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="big-n" id="s-team">6</span><span style="color:var(--ink-2);font-size:14px">of <span id="s-total">9</span> today</span></div>
+            <div class="bar" id="s-bar"></div>
+            <div class="legend"><span><i style="background:var(--green)"></i>Care assistant</span><span><i style="background:#a78bfa"></i>Housekeeping / nutrition</span><span><i style="background:var(--cy)"></i>You</span></div>
+          </div>
+          <div class="card-o">
+            <div style="font:500 10.5px var(--mono);letter-spacing:.1em;color:var(--ink-3)">CHARTING DRAFTED FOR YOU</div>
+            <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="big-n" style="color:var(--cy)" id="s-notes">3</span><span style="color:var(--ink-2);font-size:14px">notes · you signed every one</span></div>
+          </div>
+          <h2 class="sec"><span>HANDOFF</span><span>19:00</span></h2>
+          <div class="panel">
+            <a class="linkbtn" href="../index.html" target="_blank" rel="noopener"><span>I-PASS handoff for 5 patients<small>Drafted from today's chart. Review before 19:00.</small></span><svg class="ic"><use href="#i-ext"/></svg></a>
+          </div>
+          <h2 class="sec"><span>MY PATIENTS</span><span>SEVERITY</span></h2>
+          <div class="panel" id="ta-pts"></div>
+          <p style="color:var(--ink-3);font-size:12px;line-height:1.5;margin-top:16px">Counts are from this demo session. In production, routing rules are set by your unit, and anything clinical always comes to an RN.</p>
+        </section>
+      </div>
+
+      <nav class="tabbar" role="tablist" aria-label="Care team sections">
+        <button class="tab" role="tab" aria-selected="true" data-tab="now"><svg class="ic"><use href="#i-pulse"/></svg>Now<i class="dot" id="ta-dot"></i></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="doc"><svg class="ic"><use href="#i-mic"/></svg>Chart</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="shift"><svg class="ic"><use href="#i-gauge"/></svg>Shift</button>
+      </nav>
+      <div class="home-ind"></div>
+      <div class="toast-in" id="ta-toast" role="status"></div>
+      <div class="layer" id="ta-layer"><div class="backdrop"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ta-sheet-t"><div class="grab"><i></i></div><div class="sheet-head"><h2 id="ta-sheet-t"></h2><button class="x" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div><div class="sheet-body"></div></div></div>
+    </div></div></div>
+    <figcaption><b>Care team</b> · Jordan, RN · unit phone</figcaption>
+  </figure>
+</div>
+
+<p class="foot">Design prototype with a fictional patient. NOMI Care adds to the nurse call system and to nursing judgment. It never replaces them: anything clinical is routed to a registered nurse, and the bed's red call button always works. Routing rules, fluid limits and PRN intervals come from the patient's actual orders and unit policy.</p>
+
+<script>
+/* =====================================================================
+   UTIL
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ic = id => `<svg class="ic" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const haptic = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} };
+const T0 = Date.now(), START = 8 * 60 + 42;
+const nowMin = () => START + Math.floor((Date.now() - T0) / 60000);
+const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const ampm = m => { const h = Math.floor(m / 60) % 24, mm = String(m % 60).padStart(2, '0'); return `${h % 12 || 12}:${mm} ${h < 12 ? 'AM' : 'PM'}`; };
+const narrow = () => matchMedia('(max-width: 860px)').matches;
+
+/* =====================================================================
+   DEVICE FIT + MOBILE SWITCH
+   ===================================================================== */
+function fit() {
+  const s = narrow() ? 1 : Math.min(1, (innerHeight - 300) / 852, (innerWidth - 200) / (393 * 2));
+  document.documentElement.style.setProperty('--s', Math.max(.55, s).toFixed(3));
+}
+addEventListener('resize', fit); fit();
+$$('.switch button').forEach(b => b.addEventListener('click', () => {
+  $$('.switch button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  $$('.dev-col').forEach(c => c.classList.toggle('show', c.id === b.dataset.show));
+  if (b.dataset.show === 'ta-col') $('#sw-badge').classList.remove('on');
+}));
+
+/* =====================================================================
+   APP SHELL (tabs, collapsing large titles, sheets with drag-to-dismiss,
+   Dynamic Island, toasts)
+   ===================================================================== */
+function shell(root) {
+  const app = $(root), nav = $('.navbar', app), navT = $('span', nav);
+  const pages = $$('.page', app), tabs = $$('.tab', app);
+  function syncNav(p) { nav.classList.toggle('show', p.scrollTop > 44); navT.textContent = p.dataset.title; }
+  pages.forEach(p => p.addEventListener('scroll', () => syncNav(p), { passive: true }));
+  function go(name) {
+    pages.forEach(p => p.classList.toggle('active', p.id.endsWith('-' + name)));
+    tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.tab === name));
+    syncNav(pages.find(p => p.classList.contains('active')));
+    haptic();
+  }
+  tabs.forEach(t => t.addEventListener('click', () => go(t.dataset.tab)));
+
+  const layer = $('.layer', app), sheet = $('.sheet', layer), body = $('.sheet-body', layer), title = $('.sheet-head h2', layer);
+  let opener = null, onClose = null;
+  function open(t, html, after, closeCb) {
+    opener = document.activeElement; onClose = closeCb || null;
+    title.textContent = t; body.innerHTML = html; body.scrollTop = 0;
+    layer.classList.add('open'); sheet.style.transform = '';
+    after && after(body);
+    setTimeout(() => $('.x', layer).focus({ preventScroll: true }), 60);
+    haptic();
+  }
+  function close() {
+    if (!layer.classList.contains('open')) return;
+    layer.classList.remove('open'); sheet.style.transform = '';
+    onClose && onClose(); onClose = null;
+    opener && opener.focus && opener.focus({ preventScroll: true });
+  }
+  $('.backdrop', layer).addEventListener('click', close);
+  $('.x', layer).addEventListener('click', close);
+  app.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  // drag to dismiss
+  let y0 = null, dy = 0;
+  $$('.grab, .sheet-head', layer).forEach(h => {
+    h.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; y0 = e.clientY; dy = 0; sheet.classList.add('dragging'); h.setPointerCapture(e.pointerId); });
+    h.addEventListener('pointermove', e => { if (y0 === null) return; dy = Math.max(0, (e.clientY - y0) / (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--s')) || 1)); sheet.style.transform = `translateY(${dy}px)`; });
+    h.addEventListener('pointerup', () => { if (y0 === null) return; sheet.classList.remove('dragging'); y0 = null; if (dy > 110) close(); else sheet.style.transform = ''; });
+  });
+
+  const island = $('.island', app), isl = $('.isl', island);
+  let it;
+  function notify(html, ms = 3600) {
+    isl.innerHTML = html; island.classList.add('open'); clearTimeout(it);
+    it = setTimeout(() => island.classList.remove('open'), ms);
+  }
+  island.addEventListener('click', () => island.classList.remove('open'));
+
+  const toastEl = $('.toast-in', app); let tt;
+  function toast(html) { toastEl.innerHTML = html; toastEl.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toastEl.classList.remove('show'), 2600); }
+  return { go, open, close, notify, toast, app };
+}
+const P = shell('#pa'), T = shell('#ta');
+
+/* Packet animation between devices */
+function packet(dir, label) {
+  const p = $('#pkt'); if (!p.animate) return;
+  $('#link-lbl').textContent = label || 'Encrypted · real-time';
+  p.animate([{ cx: dir > 0 ? 0 : 120, opacity: 0 }, { opacity: 1, offset: .15 }, { opacity: 1, offset: .85 }, { cx: dir > 0 ? 120 : 0, opacity: 0 }], { duration: 650, easing: 'cubic-bezier(.32,.72,0,1)' });
+  if (narrow() && dir > 0 && !$('#ta-col').classList.contains('show')) $('#sw-badge').classList.add('on');
+}
+
+/* =====================================================================
+   CARE DATA (fictional patient; orders drive the logic)
+   ===================================================================== */
+const ORDERS = {
+  fluidLimitL: 1.5,
+  prn: { drug: 'Acetaminophen', dose: '650 mg by mouth', everyH: 6, lastMin: 2 * 60 + 15 },
+  fallRisk: true,
+};
+const STAFF = {
+  rn: { name: 'Jordan', role: 'Your nurse', init: 'JA', c: '#0A4D68' },
+  cna: { name: 'Maya', role: 'Care assistant', init: 'MO', c: '#0e7490' },
+  dietary: { name: 'Nutrition team', role: 'Nutrition', init: 'NT', c: '#16a34a' },
+  evs: { name: 'Housekeeping', role: 'Environmental services', init: 'HK', c: '#64748b' },
+};
+const TYPES = {
+  pain: { label: 'Pain', icon: 'zap', route: 'rn' },
+  worse: { label: 'Feeling worse', icon: 'alert', route: 'rn' },
+  iv: { label: 'IV is beeping', icon: 'iv', route: 'rn' },
+  other: { label: 'Something else', icon: 'bell', route: 'rn' },
+  question: { label: 'Question', icon: 'chat', route: 'rn' },
+  bathroom: { label: 'Bathroom help', icon: 'walk', route: 'cna' },
+  water: { label: 'Water or ice', icon: 'drop', route: 'cna' },
+  reposition: { label: 'Move in bed', icon: 'bed', route: 'cna' },
+  temp: { label: 'Too hot or cold', icon: 'temp', route: 'cna' },
+  food: { label: 'Food & menu', icon: 'food', route: 'dietary' },
+  clean: { label: 'Room cleaning', icon: 'spark', route: 'evs' },
+};
+const STEPS = ['Sent', 'Seen', 'On the way', 'Done'];
+const S = { reqs: [], seq: 0, teamHandled: 6, total: 9, notes: 3, fluid: 0.6, dt: 1, ready: { scale: false } };
+
+/* =====================================================================
+   PATIENT · TODAY
+   ===================================================================== */
+function paintRing(sel, frac, over) {
+  const c = $(sel + ' .val'); c.style.strokeDashoffset = (219.9 * (1 - Math.min(1, frac))).toFixed(1);
+  c.classList.toggle('over', !!over);
+}
+function paintFluid() {
+  const left = Math.max(0, ORDERS.fluidLimitL - S.fluid);
+  $('#fluid-v').textContent = S.fluid.toFixed(1) + ' L';
+  paintRing('#fluid-ring', S.fluid / ORDERS.fluidLimitL, S.fluid > ORDERS.fluidLimitL);
+  $('#fluid-msg').textContent = left > 0 ? `That's about ${Math.max(1, Math.round(left / 0.24))} cup${Math.round(left / 0.24) === 1 ? '' : 's'} left today, including soup and ice.` : 'You’ve reached today’s limit. If you’re thirsty, tell Jordan. Ice chips or mouth swabs can help.';
+}
+$('#add-cup').addEventListener('click', () => { S.fluid = Math.round((S.fluid + 0.24) * 100) / 100; paintFluid(); haptic(); P.toast(`${ic('check')}Logged 1 cup (240 mL)`); });
+setTimeout(paintFluid, 300);
+
+$('#aa').addEventListener('click', () => {
+  S.dt = S.dt >= 1.3 ? 1 : +(S.dt + .15).toFixed(2);
+  $('#pa').style.setProperty('--dt', S.dt);
+  P.toast(`${ic('check')}Text size: ${S.dt === 1 ? 'Default' : S.dt < 1.2 ? 'Large' : 'Extra large'}`);
+});
+$$('[data-goto]').forEach(b => b.addEventListener('click', () => P.go(b.dataset.goto)));
+
+/* =====================================================================
+   PATIENT · HELP (request flows)
+   ===================================================================== */
+function prnStatus() {
+  const next = ORDERS.prn.lastMin + ORDERS.prn.everyH * 60, now = nowMin();
+  return { ok: now >= next, next, last: ORDERS.prn.lastMin };
+}
+const FLOWS = {
+  pain(open) {
+    const prn = prnStatus();
+    open('Tell us about your pain', `
+      <span class="field-l">Where does it hurt?</span>
+      <div class="chips" id="where">${['Head', 'Chest', 'Belly', 'Back', 'Legs', 'IV site', 'Other'].map(x => `<button class="chip press" aria-pressed="false">${x}</button>`).join('')}</div>
+      <span class="field-l" id="pain-l">How bad is it right now?</span>
+      <div class="pain-n"><span class="big" id="pn">5</span><span class="w" id="pw">Moderate</span></div>
+      <input type="range" class="pain" id="pain" min="0" max="10" value="5" aria-labelledby="pain-l" aria-valuetext="5, moderate">
+      <div class="scale-l"><span>0 · None</span><span>10 · Worst possible</span></div>
+      <div id="chest-warn"></div>
+      <div class="info">${ic('pill')}<div>${prn.ok ? `<b>You can have more pain medicine now</b> if you need it. Your last ${ORDERS.prn.drug.toLowerCase()} was at ${ampm(prn.last)}.` : `Your next ${ORDERS.prn.drug.toLowerCase()} can be given after <b>${ampm(prn.next)}</b>. Jordan may have other options.`}</div></div>
+      <button class="cta press" id="send">Send to Jordan</button>`, b => {
+      const r = $('#pain', b), words = ['No pain', 'Very mild', 'Mild', 'Mild', 'Moderate', 'Moderate', 'Moderate', 'Severe', 'Severe', 'Very severe', 'Worst possible'];
+      const upd = () => { $('#pn', b).textContent = r.value; $('#pw', b).textContent = words[r.value]; r.setAttribute('aria-valuetext', `${r.value}, ${words[r.value]}`); };
+      r.addEventListener('input', () => { upd(); haptic(); });
+      $$('#where .chip', b).forEach(c => c.addEventListener('click', () => {
+        $$('#where .chip', b).forEach(x => x.setAttribute('aria-pressed', x === c));
+        $('#chest-warn', b).innerHTML = c.textContent === 'Chest' ? `<div class="info red">${ic('alert')}<div><b>Chest pain goes to Jordan as urgent.</b> If it's crushing or spreading to your arm or jaw, press the red call button too.</div></div>` : '';
+      }));
+      $('#send', b).addEventListener('click', () => {
+        const where = ($('#where [aria-pressed="true"]', b) || {}).textContent || 'not specified';
+        send('pain', { score: +r.value, where, urgent: where === 'Chest' });
+      });
+    });
+  },
+  worse(open) {
+    open('What’s going on?', `
+      <p class="sub" style="margin-top:0">Answer quickly. Any "Yes" alerts Jordan as urgent.</p>
+      ${[['breath', 'Is it hard to breathe?'], ['chest', 'Chest pain or pressure?'], ['faint', 'Feel faint, confused, or very weak?']].map(([k, q]) => `<div class="yn"><b>${q}</b><div class="chips" data-q="${k}"><button class="chip press" data-v="yes" aria-pressed="false">Yes</button><button class="chip press" data-v="no" aria-pressed="false">No</button></div></div>`).join('')}
+      <span class="field-l">Anything else? (optional)</span>
+      <textarea class="ta-in" id="w-note" placeholder="For example: I feel sweaty and my heart is racing"></textarea>
+      <div id="w-alert"></div>
+      <button class="cta press" id="send">Send to Jordan</button>`, b => {
+      const urgent = () => $$('[data-v="yes"][aria-pressed="true"]', b).length > 0;
+      $$('.yn .chips', b).forEach(g => $$('.chip', g).forEach(c => c.addEventListener('click', () => {
+        $$('.chip', g).forEach(x => x.setAttribute('aria-pressed', x === c)); haptic();
+        const u = urgent(); const s = $('#send', b);
+        s.className = 'cta press' + (u ? ' red' : ''); s.textContent = u ? 'Alert Jordan now' : 'Send to Jordan';
+        $('#w-alert', b).innerHTML = u ? `<div class="info red">${ic('alert')}<div><b>This will alert Jordan as urgent.</b> Also press the red call button on your bed.</div></div>` : '';
+      })));
+      $('#send', b).addEventListener('click', () => {
+        const ans = Object.fromEntries($$('.yn .chips', b).map(g => [g.dataset.q, ($('[aria-pressed="true"]', g) || {}).dataset?.v || '—']));
+        send('worse', { ans, note: $('#w-note', b).value.trim(), urgent: urgent() });
+      });
+    });
+  },
+  bathroom(open) {
+    open('Bathroom help', `
+      <div class="info warn" style="margin-top:0">${ic('alert')}<div><b>Please stay in bed until Maya arrives.</b> Your water pill and new medicines can make you dizzy, so it's not safe to get up alone right now.</div></div>
+      <span class="field-l">How soon?</span>
+      <div class="chips" id="soon"><button class="chip press" aria-pressed="true">Now, it's urgent</button><button class="chip press" aria-pressed="false">In the next few minutes</button></div>
+      <button class="cta press" id="send">Send to Maya</button>`, b => {
+      $$('#soon .chip', b).forEach(c => c.addEventListener('click', () => $$('#soon .chip', b).forEach(x => x.setAttribute('aria-pressed', x === c))));
+      $('#send', b).addEventListener('click', () => send('bathroom', { soon: $('#soon [aria-pressed="true"]', b).textContent }));
+    });
+  },
+  water(open) {
+    const left = Math.max(0, ORDERS.fluidLimitL - S.fluid);
+    open('Water or ice', `
+      <div class="info" style="margin-top:0">${ic('drop')}<div>You've had <b>${S.fluid.toFixed(1)} L of ${ORDERS.fluidLimitL} L</b> today. ${left > 0 ? `About ${Math.max(1, Math.round(left / 0.24))} cups left.` : 'You’re at your limit. Maya can bring ice chips or mouth swabs.'}</div></div>
+      <span class="field-l">What would you like?</span>
+      <div class="chips" id="wt">${['Water', 'Ice chips', 'Mouth swabs'].map((x, i) => `<button class="chip press" aria-pressed="${left > 0 ? i === 0 : i === 1}">${x}</button>`).join('')}</div>
+      <button class="cta press" id="send">Send to Maya</button>`, b => {
+      $$('#wt .chip', b).forEach(c => c.addEventListener('click', () => $$('#wt .chip', b).forEach(x => x.setAttribute('aria-pressed', x === c))));
+      $('#send', b).addEventListener('click', () => send('water', { what: $('#wt [aria-pressed="true"]', b).textContent }));
+    });
+  },
+  other(open) {
+    open('Something else', `
+      <span class="field-l" style="margin-top:0">What do you need?</span>
+      <textarea class="ta-in" id="o-note" placeholder="Type, or tap the microphone on your keyboard to speak"></textarea>
+      <button class="cta press" id="send">Send to Jordan</button>`, b => {
+      setTimeout(() => $('#o-note', b).focus(), 400);
+      $('#send', b).addEventListener('click', () => send('other', { note: $('#o-note', b).value.trim() || 'Asked for help' }));
+    });
+  },
+};
+function simple(type) { send(type, {}); }
+$$('[data-req]').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.req;
+  if (FLOWS[t]) FLOWS[t](P.open); else simple(t);
+}));
+
+function send(type, data) {
+  const def = TYPES[type], staff = STAFF[def.route];
+  const r = { id: ++S.seq, type, ...def, ...data, staff, status: 0, t: nowMin(), eta: def.route === 'cna' ? 3 : def.route === 'rn' ? null : 20 };
+  if (data.urgent) r.urgent = true;
+  S.reqs.unshift(r); S.total++;
+  P.close(); P.go('help');
+  renderPatientReqs(); renderQueue();
+  setTimeout(() => $('#pa-reqs').scrollIntoView({ behavior: 'smooth', block: 'center' }), 420);
+  packet(1, r.urgent ? 'URGENT · priority path' : `Routed → ${staff.name}`);
+  P.notify(`<div class="av${r.urgent ? ' red' : ''}" style="background:${r.urgent ? '' : staff.c}">${staff.init}</div><div><b>${r.urgent ? 'Jordan is being alerted' : 'Sent to ' + staff.name}</b><span>${esc(def.label)}${r.urgent ? ' · urgent' : ''}</span></div>`);
+  haptic();
+  // Delivery receipt
+  setTimeout(() => advance(r, 1), 900);
+  if (def.route !== 'rn') autoTeam(r);
+  else setTimeout(() => {
+    T.notify(`<div class="av${r.urgent ? ' red' : ''}">${r.urgent ? '!' : '12'}</div><div><b>${r.urgent ? 'URGENT · ' : ''}Bed 12 · ${esc(headline(r))}</b><span>Robert Ellis · ${r.urgent ? 'go now' : 'tap to review'}</span></div>`, r.urgent ? 6000 : 4200);
+    if (navigator.vibrate && r.urgent) try { navigator.vibrate([60, 40, 60]); } catch (e) {}
+  }, 650);
+}
+function headline(r) {
+  if (r.type === 'pain') return `PAIN ${r.score}/10 · ${r.where}`;
+  if (r.type === 'worse') return r.urgent ? 'FEELING WORSE · RED FLAG' : 'FEELING WORSE';
+  if (r.type === 'question') return 'QUESTION';
+  return r.label.toUpperCase();
+}
+function autoTeam(r) {
+  setTimeout(() => { advance(r, 2); }, 2600);
+  setTimeout(() => { advance(r, 3); S.teamHandled++; renderShift(); renderQueue(); }, 9000);
+}
+function advance(r, st) {
+  if (r.status >= st) return;
+  r.status = st;
+  renderPatientReqs(); renderQueue();
+  if (st === 2) {
+    packet(-1, `${r.staff.name} → on the way`);
+    P.notify(`<div class="av" style="background:${r.staff.c}">${r.staff.init}</div><div><b>${r.staff.name} is on the way</b><span>${esc(r.label)}</span></div>${r.eta ? `<span class="eta">~${r.eta} min</span>` : ''}`, 4200);
+  }
+  if (st === 3) { packet(-1, 'Completed'); P.notify(`<div class="av" style="background:#16a34a">${ic('check')}</div><div><b>Done</b><span>${r.staff.name} · ${esc(r.label)}</span></div>`, 3000); }
+  const dot = $('#pa-dot'), open = S.reqs.filter(x => x.status < 3).length;
+  dot.textContent = open; dot.classList.toggle('on', open > 0);
+}
+function renderPatientReqs() {
+  const host = $('#pa-reqs');
+  if (!S.reqs.length) { host.innerHTML = '<div class="empty">No open requests. When you ask for something, you’ll see it here, live.</div>'; return; }
+  host.innerHTML = S.reqs.map(r => {
+    const who = r.status >= 2 ? `${r.staff.name} is on the way` : r.status === 1 ? `Delivered to ${r.staff.name}'s phone` : 'Sending…';
+    const note = r.type === 'bathroom' && r.status < 3 ? `<div class="req-note">${ic('alert')} Please stay in bed until ${r.staff.name} arrives.</div>` : r.urgent && r.status < 3 ? `<div class="req-note red"><b>Urgent.</b> Also press the red call button on your bed.</div>` : '';
+    const rate = r.status === 3 ? (r.rated ? `<div class="rate">${ic('check')} Thanks. Shared with your care team.</div>` : `<div class="rate">How was it? <button data-rate="${r.id}" data-v="good">${ic('thumb')}Good</button><button data-rate="${r.id}" data-v="bad"><svg class="ic" style="transform:scale(1,-1)"><use href="#i-thumb"/></svg>Not good</button></div>`) : '';
+    return `<article class="req${r.urgent && r.status < 3 ? ' urgent' : ''}">
+      <div class="req-top"><span class="glyph" style="background:${r.status === 3 ? '#16a34a' : r.staff.c}">${ic(r.status === 3 ? 'check' : r.icon)}</span>
+        <div class="grow"><b>${esc(r.label)}${r.type === 'pain' ? ` · ${r.score}/10` : ''}</b><div class="who">${r.status === 3 ? `Done · ${r.staff.name} · ${ampm(r.done || nowMin())}` : who}</div></div>
+        ${r.status === 2 && r.eta ? `<span class="req-eta">~${r.eta} min</span>` : ''}</div>
+      ${r.status < 3 ? `<div class="steps">${STEPS.map((_, i) => `<i class="${i <= r.status ? 'on' : ''} ${i === r.status + 1 ? 'cur' : ''}"></i>`).join('')}</div><div class="steps-l">${STEPS.map((s, i) => `<span class="${i <= r.status ? 'on' : ''}">${s}</span>`).join('')}</div>` : ''}
+      ${note}${rate}</article>`;
+  }).join('');
+}
+$('#pa-reqs').addEventListener('click', e => {
+  const b = e.target.closest('[data-rate]'); if (!b) return;
+  const r = S.reqs.find(x => x.id === +b.dataset.rate); r.rated = b.dataset.v; renderPatientReqs(); haptic();
+});
+
+/* Ask a question (answers only from the care plan; otherwise routes to RN) */
+const QA = [
+  { q: 'When can I have more pain medicine?', a: () => { const p = prnStatus(); return p.ok ? `You can have ${ORDERS.prn.drug.toLowerCase()} (Tylenol) <b>now</b> if you need it. Your last dose was at ${ampm(p.last)}, and it can be given every ${ORDERS.prn.everyH} hours. If your pain is 7 or more, tell Jordan. There may be other options.` : `Your next ${ORDERS.prn.drug.toLowerCase()} can be given after <b>${ampm(p.next)}</b>.`; }, src: 'Your medicine orders', act: ['Ask for pain medicine', 'pain'] },
+  { q: 'What is the test at 11:30?', a: () => `It's an <b>echocardiogram</b>, an ultrasound of your heart. A technician puts gel on your chest and moves a small wand over it. It doesn't hurt and takes about 45 minutes. It shows how well your heart pumps and relaxes, which helps your doctor choose your long-term medicines.`, src: 'Your care plan' },
+  { q: 'Why am I peeing so much?', a: () => `That's your water pill, <b>furosemide</b>, doing its job. It removes the extra fluid that made you short of breath. You'll pee more for a few hours after each dose. Please ask for help to the bathroom rather than getting up alone.`, src: 'Your medicine orders', act: ['Ask for bathroom help', 'bathroom'] },
+  { q: 'When can I go home?', a: () => `Your team hasn't set a date yet. Right now they're watching your <b>breathing</b>, your <b>weight</b>, and a blood test called <b>potassium</b>. The Going home tab shows what's ready and what's left.`, src: 'Your care plan' },
+];
+$('[data-sheet="ask"]').addEventListener('click', () => {
+  P.open('Ask a question', `
+    <p class="sub" style="margin-top:0">NOMI answers from your care plan and orders. If it can't, your question goes to Jordan.</p>
+    <div class="chips" id="qs" style="margin-top:12px">${QA.map((x, i) => `<button class="chip press" data-i="${i}" style="height:auto;padding:9px 14px;text-align:left">${esc(x.q)}</button>`).join('')}</div>
+    <div id="thread"></div>
+    <span class="field-l">Or ask your own</span>
+    <textarea class="ta-in" id="q-in" placeholder="Type your question"></textarea>
+    <button class="cta ghost press" id="q-send">${ic('up')}Ask</button>`, b => {
+    const th = $('#thread', b);
+    function answer(q, item) {
+      th.insertAdjacentHTML('beforeend', `<div class="qa-q">${esc(q)}</div><div class="qa-a"><span class="typing"><i></i><i></i><i></i></span></div>`);
+      const a = th.lastElementChild; a.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(() => {
+        a.innerHTML = item ? `${item.a()}<div class="srcline">${ic('shield')}From: ${item.src} · checked by your care team</div>${item.act ? `<button class="cta ghost press" data-flow="${item.act[1]}" style="height:44px">${item.act[0]}</button>` : ''}`
+          : `I can't answer that from your care plan, so I've sent it to <b>Jordan</b>. You'll see it in your requests.<div class="srcline">${ic('shield')}NOMI never guesses about your care.</div>`;
+        a.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (!item) setTimeout(() => send('question', { note: q }), 900);
+      }, 800);
+    }
+    $$('#qs .chip', b).forEach(c => c.addEventListener('click', () => answer(c.textContent, QA[+c.dataset.i])));
+    $('#q-send', b).addEventListener('click', () => { const v = $('#q-in', b).value.trim(); if (!v) return; $('#q-in', b).value = ''; const m = QA.find(x => x.q.toLowerCase().split(/\W+/).filter(w => w.length > 4).some(w => v.toLowerCase().includes(w))); answer(v, m); });
+    th.addEventListener('click', e => { const f = e.target.closest('[data-flow]'); if (f) { P.close(); setTimeout(() => FLOWS[f.dataset.flow](P.open), 380); } });
+  });
+});
+
+/* =====================================================================
+   PATIENT · HEALTH
+   ===================================================================== */
+const MEDS = {
+  '9': [
+    { n: 'Spironolactone', f: 'Heart and fluid', note: 'Your team is reviewing this dose today because of a blood test (potassium).', flag: true, side: 'Tell us if you feel muscle weakness or an irregular heartbeat.' },
+    { n: 'Lisinopril', f: 'Blood pressure and heart', side: 'Tell us if you feel dizzy when standing or get a dry cough.' },
+    { n: 'Aspirin, low dose', f: 'Protects your heart arteries', side: 'Tell us about any unusual bleeding or black stools.' },
+  ],
+  later: [
+    { n: 'Furosemide (IV)', f: 'Water pill. Removes extra fluid', t: '10:00 AM', side: 'You’ll pee more for a few hours. Tell us about dizziness or muscle cramps.' },
+    { n: 'Heparin shot', f: 'Prevents blood clots while you’re less active', t: '2:00 PM', side: 'Small bruises at the shot site are common. Tell us about other bleeding.' },
+    { n: 'Atorvastatin', f: 'Lowers cholesterol', t: '9:00 PM', side: 'Tell us about unexplained muscle pain.' },
+  ],
+  prn: [{ n: 'Acetaminophen (Tylenol)', f: 'Pain or fever', prn: true, side: 'Don’t take any extra Tylenol from home. Many cold medicines contain it too.' }],
+};
+function medRow(m) {
+  const sub = m.prn ? (prnStatus().ok ? 'Available now · ask your nurse' : `Next allowed ${ampm(prnStatus().next)}`) : m.t || m.f;
+  return `<button class="row press" data-med="${esc(m.n)}"><span class="glyph" style="background:${m.flag ? '#a15c07' : 'var(--tint)'}">${ic('pill')}</span><span class="grow"><span class="t">${esc(m.n)}</span><span class="d" style="display:block">${esc(m.t ? m.f + ' · ' + m.t : sub)}</span>${m.flag ? '<span class="tag hi" style="margin-top:6px">' + ic('info') + 'Being reviewed today</span>' : ''}</span><svg class="ic chev"><use href="#i-chev"/></svg></button>`;
+}
+$('#meds-9').innerHTML = MEDS['9'].map(medRow).join('');
+$('#meds-later').innerHTML = MEDS.later.map(medRow).join('');
+$('#meds-prn').innerHTML = MEDS.prn.map(medRow).join('');
+$('#pa-health').addEventListener('click', e => {
+  const b = e.target.closest('[data-med]'); if (!b) return;
+  const m = [...MEDS['9'], ...MEDS.later, ...MEDS.prn].find(x => x.n === b.dataset.med);
+  P.open(m.n, `<p style="margin:0;font-size:.95em;line-height:1.5"><b>What it's for:</b> ${esc(m.f)}.</p>
+    ${m.note ? `<div class="info warn">${ic('info')}<div>${esc(m.note)}</div></div>` : ''}
+    <div class="info">${ic('alert')}<div>${esc(m.side)}</div></div>
+    <button class="cta ghost press" id="ask-med">${ic('chat')}Ask Jordan about this medicine</button>`, bb => {
+    $('#ask-med', bb).addEventListener('click', () => send('question', { note: `Question about ${m.n}` }));
+  });
+});
+$$('[data-seg]').forEach(b => b.addEventListener('click', () => {
+  $$('[data-seg]').forEach(x => x.setAttribute('aria-selected', x === b));
+  $('#seg-meds').hidden = b.dataset.seg !== 'meds'; $('#seg-results').hidden = b.dataset.seg !== 'results'; haptic();
+}));
+const RESULTS = [
+  { n: 'Potassium', v: 5.1, u: 'mmol/L', lo: 3.5, hi: 5.0, min: 3.0, max: 6.0, st: 'hi', note: 'A little above the usual range. Your team is watching it and may adjust one medicine (spironolactone). You don’t need to do anything. Please avoid salt substitutes, which often contain potassium.' },
+  { n: 'BNP (heart strain)', v: 832, u: 'pg/mL', lo: 0, hi: 100, min: 0, max: 1200, st: 'hi', trend: '1,020 → 832', note: 'Still high, but <b>coming down</b> since you arrived (1,020 → 832). That fits with the extra fluid leaving your body.' },
+  { n: 'Creatinine (kidneys)', v: 1.7, u: 'mg/dL', lo: 0.7, hi: 1.3, min: 0.5, max: 2.2, st: 'hi', note: 'Slightly higher than your usual. This can happen while water pills work. Your team checks it every day.' },
+  { n: 'Sodium', v: 136, u: 'mmol/L', lo: 135, hi: 145, min: 125, max: 150, st: 'ok', note: 'In the normal range.' },
+];
+$('#results').innerHTML = RESULTS.map(r => {
+  const pct = v => ((v - r.min) / (r.max - r.min) * 100).toFixed(1);
+  return `<div class="res"><div class="res-top"><b>${esc(r.n)}</b><span class="v">${r.v.toLocaleString()} <small>${r.u}</small></span></div>
+    <div class="range" role="img" aria-label="${esc(r.n)} ${r.v} ${r.u}; usual range ${r.lo}–${r.hi}"><span class="band" style="left:${pct(r.lo)}%;width:${(pct(r.hi) - pct(r.lo)).toFixed(1)}%"></span><span class="mk ${r.st === 'hi' ? 'hi' : ''}" style="left:${pct(Math.min(r.max, r.v))}%"></span></div>
+    <span class="tag ${r.st === 'hi' ? 'hi' : 'ok'}">${r.st === 'hi' ? ic('up') + 'Above usual range' : ic('check') + 'Normal'}</span> <span class="tag neu">Usual: ${r.lo === 0 ? 'under ' + r.hi : r.lo + '–' + r.hi}</span>
+    <p>${r.note}</p></div>`;
+}).join('');
+$('#res-pref').addEventListener('click', () => P.open('When to show results', `
+  <p class="sub" style="margin-top:0">It's your information, so you choose.</p>
+  <div class="list" style="margin-top:12px;background:var(--card-2)">
+    <button class="check" role="checkbox" aria-checked="false" data-pref="now"><span class="box">${ic('check')}</span><span><b>Right away</b><span>See results as soon as they're ready, even before your team has reviewed them.</span></span></button>
+    <button class="check" role="checkbox" aria-checked="true" data-pref="after"><span class="box">${ic('check')}</span><span><b>After my team reviews them</b><span>Usually within a few hours, with a plain-language note.</span></span></button>
+  </div>`, b => $$('[data-pref]', b).forEach(c => c.addEventListener('click', () => { $$('[data-pref]', b).forEach(x => x.setAttribute('aria-checked', x === c)); haptic(); }))));
+
+/* =====================================================================
+   PATIENT · GOING HOME
+   ===================================================================== */
+const READY = [
+  { k: 'meds', t: 'Go over your new medicines', d: 'Jordan will walk you through each one and ask you to explain it back.', done: false },
+  { k: 'visit', t: 'Heart clinic visit within 7 days', d: 'Booked: Tue, Oct 27 at 10:20 AM · Dr. Patel', done: true, icon: 'cal' },
+  { k: 'scale', t: 'A bathroom scale at home', d: 'Tap to confirm. If you don’t have one, we’ll arrange one.', done: false, user: true, icon: 'scale' },
+  { k: 'signs', t: 'Know your warning signs', d: 'Green, yellow and red zones, below.', done: false, user: true },
+  { k: 'rx', t: 'Prescriptions ready', d: 'Delivered to your room before you leave.', done: true, icon: 'pill' },
+  { k: 'ride', t: 'Ride home', d: 'Who’s picking you up?', done: false, user: true, icon: 'car' },
+];
+function paintReady() {
+  $('#ready-list').innerHTML = READY.map(x => `<button class="check" role="checkbox" aria-checked="${x.done}" ${x.user ? `data-ready="${x.k}"` : 'aria-disabled="true"'}><span class="box">${ic('check')}</span><span><b>${esc(x.t)}</b><span>${esc(x.d)}${x.user ? '' : ' · set by your team'}</span></span></button>`).join('');
+  const n = READY.filter(x => x.done).length; $('#ready-v').textContent = `${n}/${READY.length}`; paintRing('#ready-ring', n / READY.length);
+}
+$('#ready-list').addEventListener('click', e => { const b = e.target.closest('[data-ready]'); if (!b) return; const x = READY.find(r => r.k === b.dataset.ready); x.done = !x.done; paintReady(); haptic(); });
+setTimeout(paintReady, 300);
+
+/* =====================================================================
+   CARE TEAM · NOW
+   ===================================================================== */
+const SEED_RN = [{ id: 'b18', bed: '18', name: 'Samuel Reyes', label: 'IV pump alarm', t: nowMin() - 1, ctx: [['PUMP', 'Insulin infusion · <b class="warn">occlusion alarm</b>'], ['LAST', 'Glucose 168 mg/dL at 08:00']], tags: ['DKA resolving'], seed: true, status: 1 }];
+const HANDLED = [
+  { t: '08:31', bed: '14', what: 'Water', who: 'Maya', st: 'DONE' },
+  { t: '08:18', bed: '17', what: 'Bathroom help · fall risk', who: 'Maya', st: 'DONE' },
+  { t: '08:05', bed: '15', what: 'Room cleaning', who: 'Housekeeping', st: 'DONE' },
+  { t: '07:52', bed: '12', what: 'Blanket', who: 'Maya', st: 'DONE' },
+  { t: '07:40', bed: '18', what: 'Breakfast tray', who: 'Nutrition', st: 'DONE' },
+  { t: '07:22', bed: '14', what: 'Move in bed', who: 'Maya', st: 'DONE' },
+];
+function ctxFor(r) {
+  if (r.type === 'pain') {
+    const p = prnStatus();
+    return [['ASK', `${r.score}/10 · ${esc(r.where)}`], ['PRN', `${ORDERS.prn.drug} ${ORDERS.prn.dose} q${ORDERS.prn.everyH}h · last ${hhmm(p.last)} → ${p.ok ? '<b class="ok">eligible now</b>' : `<b class="warn">next ${hhmm(p.next)}</b>`}`], ['TREND', 'Last pain score 3/10 at 04:00']];
+  }
+  if (r.type === 'worse') {
+    const a = r.ans || {}; const y = k => a[k] === 'yes' ? '<b class="bad">YES</b>' : a[k] === 'no' ? 'no' : '—';
+    return [['SCREEN', `Breathing ${y('breath')} · Chest ${y('chest')} · Faint ${y('faint')}`], ['VITALS', 'SpO₂ 94% on 2 L · RR 22 · HR 82 (05:50)'], ...(r.note ? [['SAYS', `"${esc(r.note)}"`]] : [])];
+  }
+  if (r.type === 'iv') return [['LINE', 'Left forearm PIV · saline lock'], ['NEXT', 'Furosemide 40 mg IV due 10:00']];
+  if (r.type === 'question' || r.type === 'other') return [['SAYS', `"${esc(r.note || '')}"`], ['NOMI', 'Not answerable from care plan → routed to you']];
+  return [];
+}
+function renderQueue() {
+  const rn = S.reqs.filter(r => r.route === 'rn' && r.status < 3).sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const seeds = SEED_RN.filter(s => s.status < 3);
+  const all = [...rn.map(r => ({ r, bed: '12', name: 'Robert Ellis', head: headline(r), ctx: ctxFor(r), tags: ['Fall risk', 'Fluid limit 1.5 L', 'K⁺ 5.1 ↑'] })), ...seeds.map(s => ({ r: s, bed: s.bed, name: s.name, head: s.label.toUpperCase(), ctx: s.ctx, tags: s.tags }))];
+  $('#k-need').textContent = all.length;
+  const dot = $('#ta-dot'); dot.textContent = all.length; dot.classList.toggle('on', all.length > 0);
+  $('#ta-queue').innerHTML = all.length ? all.map(({ r, bed, name, head, ctx, tags }) => `
+    <article class="qcard${r.urgent ? ' urgent' : ''}" data-q="${r.id}">
+      <div class="q-top"><span class="q-bed">BED ${bed}</span><span class="q-type">${esc(head)}</span><span class="q-age">${Math.max(0, nowMin() - r.t) || '<1'}m</span></div>
+      <div class="q-name">${esc(name)}</div>
+      <div class="q-ctx">${ctx.map(([k, v]) => `<div><span class="k">${k}</span><span>${v}</span></div>`).join('')}</div>
+      <div class="q-tags">${tags.map(t => `<span class="${/K⁺|Fall/.test(t) ? 'w' : ''}">${esc(t)}</span>`).join('')}</div>
+      ${r.status >= 2 ? `<div class="enroute">${ic('pulse')} EN ROUTE · PATIENT NOTIFIED</div><div class="q-act" style="grid-template-columns:1fr"><button class="btn-ops done press" data-done="${r.id}">${ic('check')}Done · draft note</button></div>`
+        : `<div class="q-act"><button class="btn-ops ${r.urgent ? 'red' : 'pri'} press" data-omw="${r.id}">${r.urgent ? 'Going now' : 'On my way'}</button><button class="btn-ops press" data-call="${bed}">${ic('phone')}Call room</button></div>`}
+    </article>`).join('') : `<div class="panel" style="padding:22px;text-align:center;color:var(--ink-3);font-size:14px">${ic('check')}<div style="margin-top:6px">Nothing needs you right now.</div></div>`;
+  const team = S.reqs.filter(r => r.route !== 'rn').map(r => ({ t: hhmm(r.t), bed: '12', what: r.label, who: r.staff.name, st: r.status === 3 ? 'DONE' : r.status === 2 ? 'EN ROUTE' : 'ROUTED' }));
+  $('#ta-handled').innerHTML = [...team, ...HANDLED].slice(0, 6).map(h => `<div class="mini"><span class="t">${h.t}</span><span class="b">${h.bed}</span><span class="grow">${esc(h.what)}<small>${esc(h.who)}</small></span><span class="st ${h.st === 'DONE' ? 'ok' : 'go'}">${h.st}</span></div>`).join('');
+  $('#k-team').textContent = S.teamHandled;
+}
+function findAny(id) { return S.reqs.find(r => String(r.id) === String(id)) || SEED_RN.find(s => s.id === id); }
+$('#ta-queue').addEventListener('click', e => {
+  const omw = e.target.closest('[data-omw]'), done = e.target.closest('[data-done]'), call = e.target.closest('[data-call]');
+  if (omw) {
+    const r = findAny(omw.dataset.omw);
+    if (r.seed) { r.status = 2; renderQueue(); T.toast(`${ic('check')}Bed ${r.bed}: en route`); return; }
+    advance(r, 2); haptic();
+  }
+  if (done) {
+    const r = findAny(done.dataset.done);
+    if (r.seed) { r.status = 3; renderQueue(); chartSheet({ bed: r.bed, name: r.name, lines: [['EVENT', 'Insulin infusion occlusion alarm. Line checked and flushed, infusion resumed.'], ['NEXT', 'Glucose recheck 09:00 per protocol']] }); return; }
+    r.done = nowMin();
+    advance(r, 3);
+    chartSheet(draftFor(r), () => {});
+  }
+  if (call) T.toast(`${ic('phone')}Calling Bed ${call.dataset.call}…`);
+});
+function draftFor(r) {
+  const m = hhmm(nowMin());
+  if (r.type === 'pain') {
+    const p = prnStatus();
+    return { bed: '12', name: 'Robert Ellis', lines: [['PAIN', `${r.score}/10, ${r.where.toLowerCase()}. Patient-reported via NOMI Care at ${hhmm(r.t)}.`], ['INTERVENTION', p.ok ? `${ORDERS.prn.drug} ${ORDERS.prn.dose} given ${m} per PRN order.` : `PRN not yet due (next ${hhmm(p.next)}). Non-drug measures: repositioning, heat pack.`], ['REASSESS', `Due ${hhmm(nowMin() + 60)} per unit policy. Reminder set.`]], reassess: p.ok };
+  }
+  if (r.type === 'worse') return { bed: '12', name: 'Robert Ellis', lines: [['EVENT', `Patient reported feeling worse at ${hhmm(r.t)}. Screen: breathing ${r.ans?.breath || '—'}, chest ${r.ans?.chest || '—'}, faint ${r.ans?.faint || '—'}.`], ['ASSESSMENT', '[Add your findings]'], ['NOTIFIED', r.urgent ? 'Covering physician: [name/time]' : '—']] };
+  return { bed: '12', name: 'Robert Ellis', lines: [['REQUEST', `${r.label}${r.note ? `: "${r.note}"` : ''}. Responded ${m}.`]] };
+}
+function chartSheet(d, cb) {
+  T.open(`Draft note · Bed ${d.bed}`, `
+    <div style="font:500 11px var(--mono);letter-spacing:.1em;color:var(--ink-3);margin-bottom:10px">${esc(d.name.toUpperCase())} · DRAFTED BY NOMI · NOT FILED</div>
+    ${d.lines.map(([k, v], i) => `<div class="field" style="animation-delay:${i * 80}ms"><div class="fk">${k}<span>${v.includes('[') ? 'NEEDS YOU' : 'FROM REQUEST + ORDERS'}</span></div><div class="fv" contenteditable="true" spellcheck="false">${esc(v)}</div></div>`).join('')}
+    <div class="q-act" style="margin-top:16px"><button class="btn-ops pri press" id="sign">${ic('check')}Sign &amp; file</button><button class="btn-ops press" id="discard">Discard</button></div>
+    <p style="color:var(--ink-3);font-size:12px;margin-top:10px">Tap any line to edit it. Nothing reaches the chart until you sign.</p>`, b => {
+    $('#sign', b).addEventListener('click', () => {
+      S.notes++; renderShift(); T.close(); T.toast(`${ic('check')}Signed and filed to chart`);
+      if (d.reassess) addDue({ t: nowMin() + 60, bed: '12', what: 'Pain reassessment', sub: 'After acetaminophen', st: 'DUE' });
+      cb && cb();
+    });
+    $('#discard', b).addEventListener('click', () => T.close());
+  });
+}
+const DUE = [
+  { t: START + 18, bed: '12', what: 'Morning meds (3)', sub: 'Spironolactone: hold pending prescriber review (K⁺ 5.1)', st: 'HOLD 1' },
+  { t: START + 18, bed: '18', what: 'Glucose check', sub: 'Insulin infusion protocol', st: 'DUE' },
+  { t: START + 78, bed: '12', what: 'Furosemide 40 mg IV', sub: 'Check BP first', st: 'DUE' },
+];
+function addDue(x) { DUE.push(x); DUE.sort((a, b) => a.t - b.t); renderDue(); }
+function renderDue() {
+  $('#due-n').textContent = DUE.length;
+  $('#ta-due').innerHTML = DUE.map(d => `<div class="mini"><span class="t">${hhmm(d.t)}</span><span class="b">${d.bed}</span><span class="grow">${esc(d.what)}<small>${esc(d.sub)}</small></span><span class="st ${d.st.startsWith('HOLD') ? 'hold' : 'go'}">${d.st}</span></div>`).join('');
+}
+renderDue(); renderQueue();
+setInterval(() => { const n = new Date(), s = String(n.getSeconds()).padStart(2, '0'); $('#ta-clock').textContent = hhmm(nowMin()) + ':' + s; }, 1000);
+
+/* =====================================================================
+   CARE TEAM · CHART BY VOICE
+   ===================================================================== */
+const DICT = 'Bed twelve, Robert Ellis. Lungs: crackles at both bases, less than yesterday. Two plus edema both ankles. On two liters, sats ninety-four. Says he slept better, propped on two pillows. Gave Tylenol for back pain, six out of ten.';
+const DICT_FIELDS = [
+  ['RESPIRATORY', 'Bibasilar crackles, improved from prior assessment. O₂ 2 L/min NC, SpO₂ 94%. Orthopnea: sleeps on 2 pillows, reports improved sleep.'],
+  ['CARDIOVASCULAR', '2+ pitting edema, bilateral ankles.'],
+  ['PAIN', 'Back pain 6/10.'],
+  ['MEDICATION', 'Acetaminophen 650 mg PO (PRN order) given.', '"Tylenol" matched to active PRN order: acetaminophen 650 mg PO q6h. Confirm dose.'],
+];
+const wave = $('#wave'); wave.innerHTML = Array.from({ length: 28 }, () => '<i></i>').join('');
+let recording = false;
+$('#mic').addEventListener('click', () => {
+  if (recording) return; recording = true; haptic();
+  const mic = $('#mic'), tr = $('#transcript'), bars = $$('i', wave);
+  mic.classList.add('rec'); mic.setAttribute('aria-label', 'Recording'); $('#mic-l').textContent = 'LISTENING…'; $('#fields').innerHTML = ''; tr.innerHTML = '';
+  const w = DICT.split(' '); let i = 0;
+  const wv = setInterval(() => bars.forEach(b => b.style.height = (4 + Math.random() * 28) + 'px'), 110);
+  const tw = setInterval(() => {
+    tr.innerHTML += (i ? ' ' : '') + `<span class="w">${esc(w[i])}</span>`; i++;
+    if (i >= w.length) {
+      clearInterval(tw); clearInterval(wv); bars.forEach(b => b.style.height = '4px');
+      mic.classList.remove('rec'); mic.setAttribute('aria-label', 'Start dictation'); $('#mic-l').textContent = 'STRUCTURED · REVIEW AND SIGN';
+      $('#fields').innerHTML = DICT_FIELDS.map(([k, v, m], j) => `<div class="field" style="animation-delay:${j * 110}ms"><div class="fk">${k}<span>FROM VOICE</span></div><div class="fv" contenteditable="true" spellcheck="false">${esc(v)}</div>${m ? `<div class="match">${ic('alert')}${esc(m)}</div>` : ''}</div>`).join('') +
+        `<div class="q-act" style="margin-top:14px"><button class="btn-ops pri press" id="v-sign">${ic('check')}Sign &amp; file</button><button class="btn-ops press" id="v-redo">Redo</button></div>`;
+      $('#v-sign').addEventListener('click', () => { S.notes++; renderShift(); T.toast(`${ic('check')}Assessment filed · Bed 12`); $('#fields').innerHTML = ''; tr.innerHTML = '<span style="color:var(--ink-3)">Filed. Tap the mic for the next patient.</span>'; $('#mic-l').textContent = 'TAP TO DICTATE ASSESSMENT'; });
+      $('#v-redo').addEventListener('click', () => { $('#fields').innerHTML = ''; tr.innerHTML = '<span style="color:var(--ink-3)">Transcript appears here.</span>'; $('#mic-l').textContent = 'TAP TO DICTATE ASSESSMENT'; });
+      recording = false;
+    }
+  }, 120);
+});
+
+/* =====================================================================
+   CARE TEAM · SHIFT
+   ===================================================================== */
+const PTS = [['15', 'James Okafor', 'COPD exacerbation', 'UNSTABLE', 'var(--red)'], ['12', 'Robert Ellis', 'ADHF', 'WATCHER', 'var(--amber)'], ['18', 'Samuel Reyes', 'DKA, resolving', 'WATCHER', 'var(--amber)'], ['14', 'Maria Santos', 'Pneumonia', 'STABLE', 'var(--green)'], ['17', 'Linda Park', 'Hip fx, POD 1', 'STABLE', 'var(--green)']];
+$('#ta-pts').innerHTML = PTS.map(([b, n, r, s, c]) => `<div class="mini"><span class="b">${b}</span><span class="grow">${n}<small>${r}</small></span><span class="st" style="color:${c}">${s}</span></div>`).join('');
+function renderShift() {
+  const rn = S.total - S.teamHandled, other = 2, cna = Math.max(0, S.teamHandled - other);
+  $('#s-team').textContent = S.teamHandled; $('#s-total').textContent = S.total; $('#s-notes').textContent = S.notes;
+  $('#s-bar').innerHTML = `<i style="width:${cna / S.total * 100}%;background:var(--green)"></i><i style="width:${other / S.total * 100}%;background:#a78bfa"></i><i style="width:${rn / S.total * 100}%;background:var(--cy)"></i>`;
+  $('#k-team').textContent = S.teamHandled;
+}
+renderShift();
+</script>
+</body>
+</html>
