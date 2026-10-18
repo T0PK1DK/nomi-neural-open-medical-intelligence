@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-aud="clinician">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOMI Atlas</title>
+<meta name="description" content="NOMI Atlas: open, cited, unsponsored medical answers and a living clinical encyclopedia, with an AI buddy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script>
+  (function () { try { var t = localStorage.getItem('nomi.atlas.theme'); var d = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.dataset.theme = d ? 'dark' : 'light'; } catch (e) {} })();
+</script>
+<style>
+:root {
+  --bg: #f5f7f8; --surface: #fff; --surface-2: #eef3f5; --surface-3: #e2eaee; --line: #dbe3e7; --line-2: #bccbd2;
+  --ink: #0b1b22; --ink-2: #3b525c; --ink-3: #5a717b;
+  --brand: #0A4D68; --cyan: #22d3ee; --accent: #0b6e86; --primary: #0A4D68; --on-primary: #fff; --soft: #e3f1f6;
+  --ok: #0b6b3f; --ok-bg: #e9f7ef; --warn: #8a5300; --warn-bg: #fff5e1; --crit: #b42318; --crit-bg: #fdf1ef;
+  --shadow: 0 1px 2px rgba(10,30,40,.05), 0 8px 24px rgba(10,30,40,.06);
+  --shadow-lg: 0 24px 60px rgba(6,25,35,.22);
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Source Serif 4", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(.2,.7,.2,1); --spring: cubic-bezier(.32,.72,0,1);
+}
+[data-theme="dark"] {
+  --bg: #061217; --surface: #0b1c23; --surface-2: #10262f; --surface-3: #16323d; --line: #1b3540; --line-2: #2b4c59;
+  --ink: #e6f2f5; --ink-2: #a8c0c8; --ink-3: #8ba7b1;
+  --accent: #67e8f9; --primary: #22d3ee; --on-primary: #03222c; --soft: rgba(34,211,238,.12);
+  --ok: #6ee3a1; --ok-bg: rgba(80,220,140,.1); --warn: #fcc85b; --warn-bg: rgba(252,190,70,.1); --crit: #ff9b8f; --crit-bg: rgba(255,110,95,.11);
+  --shadow: 0 8px 28px rgba(0,0,0,.3); --shadow-lg: 0 24px 60px rgba(0,0,0,.55); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--ink); line-height: 1.55; -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, h4, p { margin: 0; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.ic { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 1rem; top: -4rem; background: var(--primary); color: var(--on-primary); padding: .7rem 1rem; border-radius: 8px; z-index: 200; font-weight: 600; text-decoration: none; }
+.skip:focus { top: 1rem; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+
+/* ---------- Top bar ---------- */
+.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 1rem; padding: .7rem 1.5rem; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: saturate(1.5) blur(12px); -webkit-backdrop-filter: saturate(1.5) blur(12px); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: .6rem; font-weight: 800; letter-spacing: .01em; text-decoration: none; color: inherit; }
+.logo i { width: 1.9rem; height: 1.9rem; border-radius: 9px; background: linear-gradient(140deg, #22d3ee, #0A4D68 78%); display: grid; place-items: center; color: #fff; font-style: normal; font-size: .9rem; }
+.logo small { font-weight: 500; color: var(--ink-3); font-size: .78rem; margin-left: .15rem; }
+.tabs { display: flex; gap: .25rem; }
+.tabs button { border: 0; background: transparent; padding: .5rem .85rem; border-radius: 9px; font-weight: 600; color: var(--ink-2); min-height: 2.5rem; }
+.tabs button[aria-current="page"] { background: var(--soft); color: var(--ink); }
+.spacer { flex: 1; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--line); }
+.seg button { border: 0; background: transparent; padding: 0 .75rem; min-height: 2.1rem; border-radius: 8px; font-weight: 600; font-size: .85rem; color: var(--ink-2); }
+.seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.ctx { display: inline-flex; align-items: center; gap: .5rem; border: 1px solid var(--line); background: var(--surface); padding: .3rem .4rem .3rem .65rem; border-radius: 999px; font-size: .85rem; font-weight: 600; }
+.ctx .av { width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--surface-3); display: grid; place-items: center; font-size: .65rem; font-weight: 700; }
+.ctx[data-on="false"] { opacity: .65; }
+.ctx[data-on="false"] .name { text-decoration: line-through; }
+.tog { appearance: none; width: 2.3rem; height: 1.35rem; border-radius: 999px; background: var(--surface-3); position: relative; cursor: pointer; border: 1px solid var(--line-2); transition: background .2s; margin: 0; }
+.tog::after { content: ""; position: absolute; top: 2px; left: 2px; width: .95rem; height: .95rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .2s var(--spring); }
+.tog:checked { background: var(--primary); border-color: var(--primary); }
+.tog:checked::after { transform: translateX(.95rem); }
+.iconbtn { width: 2.5rem; height: 2.5rem; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+
+main { max-width: 84rem; margin: 0 auto; padding: 1.5rem; }
+.view { display: none; }
+.view.active { display: block; animation: rise .3s var(--ease); }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Ask: hero ---------- */
+.hero { max-width: 46rem; margin: 3.5rem auto 0; text-align: center; }
+.hero h1 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 2.9rem); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.hero h1 em { font-style: normal; background: linear-gradient(90deg, #0A4D68, #22d3ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p { color: var(--ink-2); margin-top: .7rem; font-size: 1.05rem; }
+.qbox { margin-top: 1.75rem; display: flex; align-items: flex-end; gap: .5rem; background: var(--surface); border: 1px solid var(--line-2); border-radius: 20px; padding: .55rem .55rem .55rem 1.1rem; box-shadow: var(--shadow); transition: box-shadow .2s, border-color .2s; text-align: left; }
+.qbox:focus-within { border-color: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--cyan) 22%, transparent), var(--shadow); }
+.qbox textarea { flex: 1; border: 0; outline: 0; background: transparent; resize: none; font-size: 1.08rem; min-height: 2.9rem; max-height: 10rem; padding: .7rem 0; line-height: 1.45; }
+.send { width: 2.9rem; height: 2.9rem; border-radius: 14px; border: 0; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; flex: none; transition: transform .12s; }
+.send:active { transform: scale(.95); }
+.ctx-note { margin-top: .6rem; font-size: .85rem; color: var(--ink-3); display: flex; gap: .4rem; justify-content: center; align-items: center; }
+.sugs { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: 1.5rem; text-align: left; }
+.sug { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: .8rem .95rem; font-weight: 500; font-size: .93rem; display: flex; gap: .65rem; align-items: flex-start; transition: border-color .2s, transform .15s; min-height: 3.2rem; text-align: left; }
+.sug:hover { border-color: var(--accent); transform: translateY(-1px); }
+.sug .ic { color: var(--accent); margin-top: .15rem; }
+.sug small { display: block; color: var(--ink-3); font-weight: 500; font-size: .78rem; margin-top: .15rem; }
+.trust { display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-top: 2rem; font-size: .85rem; color: var(--ink-2); }
+.trust span { display: inline-flex; gap: .4rem; align-items: center; }
+.trust .ic { color: var(--ok); }
+
+/* ---------- Answer ---------- */
+.ans-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 2rem; align-items: start; }
+.ans-q { font-family: var(--serif); font-size: 1.7rem; font-weight: 700; letter-spacing: -.015em; line-height: 1.25; }
+.ans-meta { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .7rem; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: .35rem; font-size: .76rem; font-weight: 700; padding: .25rem .6rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.pill.ok { color: var(--ok); background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.pill.ctx-on { color: var(--accent); background: var(--soft); border-color: color-mix(in srgb, var(--cyan) 45%, transparent); }
+.steps { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .5rem; }
+.steps li { display: flex; align-items: center; gap: .6rem; color: var(--ink-3); font-size: .93rem; }
+.steps li.done { color: var(--ink-2); }
+.steps li.done .ic { color: var(--ok); }
+.steps li.doing { color: var(--ink); }
+.spin { animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ans-body { margin-top: 1.4rem; font-size: 1.04rem; line-height: 1.7; }
+.ans-body p + p, .ans-body p + ul, .ans-body ul + p, .ans-body h3 + p, .ans-body p + h3, .ans-body ul + h3 { margin-top: .9rem; }
+.ans-body h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
+.ans-body ul { margin: .4rem 0 0; padding-left: 1.2rem; }
+.ans-body li { margin: .3rem 0; }
+.ans-body .lead { font-size: 1.15rem; font-weight: 600; line-height: 1.55; }
+.fade-in > * { animation: rise .45s var(--ease) both; }
+.c { all: unset; cursor: pointer; display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0 .3rem; margin: 0 .1rem; border-radius: 6px; background: var(--soft); color: var(--accent); font: 700 .72rem/1 var(--sans); vertical-align: .15em; transition: background .15s, color .15s; }
+.c:hover, .c.hl { background: var(--primary); color: var(--on-primary); }
+.c:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.unknown { margin-top: 1.25rem; display: flex; gap: .7rem; padding: .9rem 1rem; border-radius: 12px; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); font-size: .93rem; }
+.unknown .ic { color: var(--warn); margin-top: .2rem; }
+.followups { margin-top: 1.75rem; border-top: 1px solid var(--line); padding-top: 1.1rem; }
+.followups h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: .6rem; }
+.fu { display: flex; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: .7rem .2rem; font-weight: 500; }
+.fu:hover { color: var(--accent); }
+.fu .ic { color: var(--ink-3); }
+.ans-actions { display: flex; gap: .5rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: .45rem; min-height: 2.6rem; padding: 0 .95rem; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface); font-weight: 600; font-size: .9rem; }
+.btn:hover { background: var(--surface-2); }
+.btn.pri { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.refs { position: sticky; top: 5.5rem; }
+.refs h2 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: .6rem; display: flex; justify-content: space-between; }
+.ref { display: grid; grid-template-columns: 1.6rem 1fr; gap: .6rem; padding: .8rem; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); transition: border-color .2s, box-shadow .2s; }
+.ref + .ref { margin-top: .5rem; }
+.ref.hl { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 22%, transparent); }
+.ref .n { width: 1.5rem; height: 1.5rem; border-radius: 6px; background: var(--soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: .75rem; }
+.ref b { font-size: .88rem; line-height: 1.35; display: block; }
+.ref .cit { font-size: .78rem; color: var(--ink-3); margin-top: .2rem; }
+.ref .tags { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .45rem; }
+.tag { font-size: .68rem; font-weight: 700; padding: .12rem .45rem; border-radius: 5px; background: var(--surface-2); color: var(--ink-2); letter-spacing: .01em; }
+.tag.open { background: var(--ok-bg); color: var(--ok); }
+.tag.type { background: var(--soft); color: var(--accent); }
+.tag.chart { background: var(--warn-bg); color: var(--warn); }
+.ref a { color: var(--accent); font-size: .78rem; font-weight: 600; text-decoration: none; display: inline-flex; gap: .25rem; align-items: center; margin-top: .4rem; }
+
+/* ---------- Atlas ---------- */
+.atlas { display: grid; grid-template-columns: 16rem minmax(0, 1fr) 14rem; gap: 2rem; align-items: start; }
+.toc-l { position: sticky; top: 5.5rem; }
+.filter { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: .6rem .75rem; outline: 0; }
+.filter:focus { border-color: var(--accent); }
+.topics { list-style: none; padding: 0; margin: .75rem 0 0; display: grid; gap: .2rem; }
+.topics button { width: 100%; text-align: left; border: 0; background: transparent; padding: .6rem .7rem; border-radius: 9px; font-weight: 500; color: var(--ink-2); }
+.topics button:hover { background: var(--surface-2); color: var(--ink); }
+.topics button[aria-current="true"] { background: var(--soft); color: var(--ink); font-weight: 650; box-shadow: inset 3px 0 0 var(--cyan); }
+.topics small { display: block; font-size: .75rem; color: var(--ink-3); font-weight: 500; }
+.art { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 2.25rem 2.5rem; box-shadow: var(--shadow); }
+.art .kicker { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.art h1 { font-family: var(--serif); font-size: 2.2rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin-top: .35rem; }
+.art .byline { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .85rem; }
+.art h2 { font-family: var(--serif); font-size: 1.4rem; font-weight: 700; margin-top: 2.1rem; padding-top: 1.2rem; border-top: 1px solid var(--line); scroll-margin-top: 6rem; }
+.art p, .art li { font-family: var(--serif); font-size: 1.08rem; line-height: 1.75; }
+.art p { margin-top: .8rem; }
+.art ul { padding-left: 1.25rem; margin: .6rem 0 0; }
+.art li { margin: .35rem 0; }
+.keybox { margin-top: 1.25rem; background: var(--surface-2); border-radius: 14px; padding: 1.1rem 1.25rem; }
+.keybox h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.keybox li { font-family: var(--sans); font-size: .98rem; line-height: 1.6; }
+.rtab { width: 100%; border-collapse: collapse; margin-top: .9rem; font-size: .92rem; }
+.rtab th { text-align: left; font-size: .75rem; color: var(--ink-3); font-weight: 700; padding: .5rem; border-bottom: 1px solid var(--line); }
+.rtab td { padding: .65rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.cls { display: inline-block; font: 700 .75rem var(--mono); padding: .15rem .45rem; border-radius: 5px; white-space: nowrap; }
+.cls.c1 { background: var(--ok-bg); color: var(--ok); }
+.cls.c2a { background: var(--soft); color: var(--accent); }
+.cls.c3 { background: var(--crit-bg); color: var(--crit); }
+.cls.cx { background: var(--surface-3); color: var(--ink-2); }
+.timeline { list-style: none; padding: 0; margin: .9rem 0 0; }
+.timeline li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1rem; padding: .5rem 0; font-family: var(--sans); font-size: .95rem; position: relative; }
+.timeline .yr { font: 700 .85rem var(--mono); color: var(--accent); }
+.audnote { margin-top: 1rem; display: flex; gap: .6rem; padding: .85rem 1rem; border-radius: 12px; background: var(--soft); font-size: .92rem; }
+.audnote .ic { color: var(--accent); margin-top: .15rem; }
+.toc-r { position: sticky; top: 5.5rem; font-size: .88rem; }
+.toc-r h3 { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: .5rem; }
+.toc-r a { display: block; color: var(--ink-2); text-decoration: none; padding: .3rem 0 .3rem .7rem; border-left: 2px solid var(--line); }
+.toc-r a:hover { color: var(--ink); border-color: var(--accent); }
+.reflist { counter-reset: r; list-style: none; padding: 0; margin: .8rem 0 0; }
+.reflist li { font-family: var(--sans); font-size: .88rem; line-height: 1.5; display: grid; grid-template-columns: 1.8rem 1fr; gap: .4rem; padding: .4rem 0; border-bottom: 1px dashed var(--line); }
+.reflist li.hl { background: var(--soft); border-radius: 6px; }
+.reflist .n { font-weight: 700; color: var(--accent); }
+
+/* ---------- Sources ---------- */
+.src-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.src-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem 1.2rem; }
+.src-card b { display: block; font-size: 1rem; }
+.src-card p { font-size: .9rem; color: var(--ink-2); margin-top: .35rem; }
+.policy { margin-top: 2rem; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 1.5rem 1.75rem; }
+.policy h2 { font-family: var(--serif); font-size: 1.4rem; }
+.policy ol { margin: .8rem 0 0; padding-left: 1.2rem; }
+.policy li { margin: .45rem 0; }
+
+/* ---------- Buddy ---------- */
+.buddy-fab { position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 80; display: flex; align-items: center; gap: .6rem; border: 0; background: var(--surface); padding: .45rem 1rem .45rem .45rem; border-radius: 999px; box-shadow: var(--shadow-lg); font-weight: 700; border: 1px solid var(--line); transition: transform .2s var(--spring); }
+.buddy-fab:hover { transform: translateY(-2px); }
+.buddy-fab .hint { font-weight: 500; color: var(--ink-2); font-size: .85rem; max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width .5s var(--spring); }
+.buddy-fab.nudge .hint { max-width: 18rem; }
+.orb { width: 2.6rem; height: 2.6rem; border-radius: 50%; position: relative; flex: none; background: radial-gradient(circle at 32% 28%, #9af1fd, #22d3ee 35%, #0A4D68 80%); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cyan) 18%, transparent), 0 6px 18px rgba(10,77,104,.4); animation: breathe 4s ease-in-out infinite; }
+@keyframes breathe { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--cyan) 10%, transparent), 0 6px 22px rgba(10,77,104,.5); } }
+.orb::before, .orb::after { content: ""; position: absolute; top: 42%; width: 13%; height: 20%; background: #fff; border-radius: 3px; animation: blink 5s infinite; }
+.orb::before { left: 33%; } .orb::after { right: 33%; }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.orb.lg { width: 3.4rem; height: 3.4rem; }
+.orb.think { animation: breathe 1s ease-in-out infinite; }
+.buddy { position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 90; width: min(25rem, calc(100vw - 2rem)); height: min(40rem, calc(100vh - 3rem)); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; transform-origin: bottom right; transform: scale(.85) translateY(20px); opacity: 0; pointer-events: none; transition: transform .4s var(--spring), opacity .25s; }
+.buddy.open { transform: none; opacity: 1; pointer-events: auto; }
+.b-head { display: flex; align-items: center; gap: .75rem; padding: 1rem 1rem .8rem; border-bottom: 1px solid var(--line); }
+.b-head b { display: block; }
+.b-head small { color: var(--ink-3); font-size: .8rem; }
+.b-head .x { margin-left: auto; }
+.b-body { flex: 1; overflow-y: auto; padding: 1rem; display: grid; gap: .75rem; align-content: start; }
+.bm { max-width: 92%; padding: .7rem .9rem; border-radius: 16px 16px 16px 4px; background: var(--surface-2); font-size: .93rem; line-height: 1.55; animation: rise .35s var(--ease); }
+.bm.me { justify-self: end; background: var(--primary); color: var(--on-primary); border-radius: 16px 16px 4px 16px; }
+.bm ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+.bm .src { font-size: .75rem; color: var(--ink-3); margin-top: .45rem; display: flex; gap: .3rem; align-items: center; }
+.b-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: .25rem 1rem .6rem; }
+.b-chips button { border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px; padding: .4rem .75rem; font-size: .82rem; font-weight: 600; }
+.b-chips button:hover { border-color: var(--accent); color: var(--accent); }
+.b-in { display: flex; gap: .4rem; padding: .7rem; border-top: 1px solid var(--line); }
+.b-in input { flex: 1; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 0 .85rem; min-height: 2.6rem; outline: 0; }
+.b-in input:focus { border-color: var(--accent); }
+.quiz button.opt { display: block; width: 100%; text-align: left; margin-top: .4rem; border: 1px solid var(--line-2); background: var(--surface); padding: .55rem .7rem; border-radius: 10px; font-size: .88rem; }
+.quiz button.opt.right { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+.quiz button.opt.wrong { border-color: var(--crit); background: var(--crit-bg); color: var(--crit); }
+.typing { display: inline-flex; gap: 4px; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: tb 1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes tb { 50% { opacity: .25; } }
+.toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translate(-50%, 20px); opacity: 0; background: #0b1c23; color: #e6f2f5; padding: .7rem 1rem; border-radius: 12px; font-weight: 600; font-size: .9rem; z-index: 120; transition: all .35s var(--spring); display: flex; gap: .5rem; align-items: center; pointer-events: none; }
+[data-theme="dark"] .toast { background: #e6f2f5; color: #0b1b22; }
+.toast.show { transform: translate(-50%, 0); opacity: 1; }
+.foot { text-align: center; font-size: .82rem; color: var(--ink-3); margin: 3rem auto 1rem; max-width: 46rem; }
+
+@media (max-width: 1100px) {
+  .ans-wrap { grid-template-columns: 1fr; }
+  .refs { position: static; }
+  .atlas { grid-template-columns: 1fr; }
+  .toc-l, .toc-r { position: static; }
+  .toc-r { display: none; }
+  .topics { grid-auto-flow: column; overflow-x: auto; }
+  .topics button { white-space: nowrap; }
+  .topics small { display: none; }
+}
+@media (max-width: 640px) {
+  main { padding: 1rem; }
+  .top { padding: .6rem 1rem; }
+  .sugs { grid-template-columns: 1fr; }
+  .hero { margin-top: 1.5rem; }
+  .art { padding: 1.4rem 1.2rem; }
+  .art h1 { font-size: 1.7rem; }
+  .ctx .name { display: none; }
+  .buddy-fab .hint { display: none; }
+  .rtab { font-size: .82rem; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 10.6l-6.1 1.9L12 18.3l-1.9-5.8L4 10.6l6.1-1.8Z"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></symbol>
+</svg>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="logo" href="#" data-go="ask"><i>N</i>NOMI <small>Atlas</small></a>
+  <nav class="tabs" aria-label="Sections">
+    <button data-go="ask" aria-current="page">Ask</button>
+    <button data-go="atlas">Encyclopedia</button>
+    <button data-go="sources">Sources</button>
+  </nav>
+  <div class="spacer"></div>
+  <label class="ctx" id="ctx" data-on="true" title="Answer with this patient's chart">
+    <span class="av" aria-hidden="true">RE</span><span class="name">Robert Ellis · Bed 12</span>
+    <input type="checkbox" class="tog" id="ctx-tog" checked aria-label="Use Robert Ellis's chart as context">
+  </label>
+  <div class="seg" role="radiogroup" aria-label="Reading level" id="aud">
+    <button role="radio" aria-checked="true" data-v="clinician">Clinician</button>
+    <button role="radio" aria-checked="false" data-v="nurse">Nurse</button>
+    <button role="radio" aria-checked="false" data-v="patient">Patient</button>
+  </div>
+  <button class="iconbtn" id="theme" aria-label="Toggle dark mode"><svg class="ic"><use href="#i-moon"/></svg></button>
+</header>
+
+<main id="main">
+  <!-- ================= ASK ================= -->
+  <section class="view active" id="v-ask" aria-label="Ask">
+    <div id="ask-home">
+      <div class="hero">
+        <h1>Medical answers you can <em>check</em>.</h1>
+        <p>Every claim is cited. Every source is labelled. Nothing is sponsored.</p>
+        <form class="qbox" id="qform">
+          <label for="q" class="sr">Your question</label>
+          <textarea id="q" rows="1" placeholder="Ask a clinical question…"></textarea>
+          <button class="send" aria-label="Ask"><svg class="ic"><use href="#i-up"/></svg></button>
+        </form>
+        <div class="ctx-note" id="ctx-note"><svg class="ic"><use href="#i-user"/></svg><span>Answers will consider Robert Ellis's chart (K⁺ 5.1, eGFR 42, EF unknown).</span></div>
+        <div class="sugs" id="sugs"></div>
+        <div class="trust">
+          <span><svg class="ic"><use href="#i-check"/></svg>No sponsored content</span>
+          <span><svg class="ic"><use href="#i-check"/></svg>Open sources first</span>
+          <span><svg class="ic"><use href="#i-check"/></svg>Says when it doesn't know</span>
+        </div>
+      </div>
+    </div>
+    <div id="ask-ans" hidden></div>
+  </section>
+
+  <!-- ================= ATLAS ================= -->
+  <section class="view" id="v-atlas" aria-label="Encyclopedia">
+    <div class="atlas">
+      <aside class="toc-l">
+        <label for="tf" class="sr">Filter topics</label>
+        <input class="filter" id="tf" placeholder="Filter topics…">
+        <ul class="topics" id="topics"></ul>
+      </aside>
+      <article class="art" id="art" aria-live="polite"></article>
+      <aside class="toc-r" id="toc-r"></aside>
+    </div>
+  </section>
+
+  <!-- ================= SOURCES ================= -->
+  <section class="view" id="v-sources" aria-label="Sources">
+    <div style="max-width:60rem">
+      <h1 style="font-family:var(--serif);font-size:2.2rem;letter-spacing:-.02em">Where NOMI's knowledge comes from</h1>
+      <p style="color:var(--ink-2);margin-top:.6rem;font-size:1.05rem">NOMI is built on open, public sources first. Copyrighted guidelines are summarized and linked, never republished. Every reference shows how much of it you can read for free.</p>
+    </div>
+    <div class="src-grid" id="src-grid"></div>
+    <div class="policy">
+      <h2>The NOMI evidence policy</h2>
+      <ol>
+        <li><b>No sponsored content in clinical answers.</b> No ads in answers or while they load, and no paid placement in source ranking.</li>
+        <li><b>Every claim is cited</b> to a source you can open. If NOMI can't cite it, NOMI doesn't say it.</li>
+        <li><b>Guidelines before single studies, and studies before opinion.</b> Recommendation class and level of evidence are quoted from the guideline itself.</li>
+        <li><b>Patient context is opt-in, visible and auditable.</b> The context chip shows exactly what NOMI read.</li>
+        <li><b>One evidence base, three reading levels.</b> Clinician, nurse and patient versions cite the same sources.</li>
+        <li><b>Unknowns are stated</b>, not filled in.</li>
+      </ol>
+    </div>
+  </section>
+
+  <p class="foot">NOMI Atlas is a design prototype. The patient is fictional, and the cited publications are real. Answers are summaries for professional review and do not replace clinical judgment or the original sources.</p>
+</main>
+
+<!-- Buddy -->
+<button class="buddy-fab" id="fab" aria-expanded="false" aria-controls="buddy"><span class="orb" aria-hidden="true"></span>Nomi<span class="hint" id="fab-hint"></span></button>
+<section class="buddy" id="buddy" role="dialog" aria-label="Nomi, your AI buddy" aria-modal="false">
+  <div class="b-head"><span class="orb lg" id="b-orb" aria-hidden="true"></span><div><b>Nomi</b><small id="b-sub">Your AI buddy</small></div><button class="iconbtn x" id="b-x" aria-label="Close Nomi"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  <div class="b-body" id="b-body" aria-live="polite"></div>
+  <div class="b-chips" id="b-chips"></div>
+  <form class="b-in" id="b-form"><label for="b-q" class="sr">Message Nomi</label><input id="b-q" placeholder="Ask Nomi anything…" autocomplete="off"><button class="send" style="width:2.6rem;height:2.6rem;border-radius:12px" aria-label="Send"><svg class="ic"><use href="#i-up"/></svg></button></form>
+</section>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* =====================================================================
+   REFERENCES — real publications. Access labels are conservative.
+   ===================================================================== */
+const REF = {
+  aha2022: { t: '2022 AHA/ACC/HFSA Guideline for the Management of Heart Failure', c: 'Heidenreich PA, et al. Circulation. 2022;145:e895–e1032.', type: 'Guideline', access: 'Free to read' },
+  esc2023: { t: '2023 Focused Update of the 2021 ESC Guidelines for acute and chronic heart failure', c: 'McDonagh TA, et al. Eur Heart J. 2023;44:3627–3639.', type: 'Guideline', access: 'Free to read' },
+  dose2011: { t: 'Diuretic strategies in patients with acute decompensated heart failure (DOSE)', c: 'Felker GM, et al. N Engl J Med. 2011;364:797–805.', type: 'RCT', access: 'Abstract on PubMed' },
+  advor2022: { t: 'Acetazolamide in acute decompensated heart failure with volume overload (ADVOR)', c: 'Mullens W, et al. N Engl J Med. 2022;387:1185–1195.', type: 'RCT', access: 'Abstract on PubMed' },
+  strong2022: { t: 'Safety, tolerability and efficacy of up-titration of guideline-directed medical therapies for acute heart failure (STRONG-HF)', c: 'Mebazaa A, et al. Lancet. 2022;400:1938–1952.', type: 'RCT', access: 'Abstract on PubMed' },
+  dapahf2019: { t: 'Dapagliflozin in patients with heart failure and reduced ejection fraction (DAPA-HF)', c: 'McMurray JJV, et al. N Engl J Med. 2019;381:1995–2008.', type: 'RCT', access: 'Abstract on PubMed' },
+  empred2020: { t: 'Cardiovascular and renal outcomes with empagliflozin in heart failure (EMPEROR-Reduced)', c: 'Packer M, et al. N Engl J Med. 2020;383:1413–1424.', type: 'RCT', access: 'Abstract on PubMed' },
+  emppres2021: { t: 'Empagliflozin in heart failure with a preserved ejection fraction (EMPEROR-Preserved)', c: 'Anker SD, et al. N Engl J Med. 2021;385:1451–1461.', type: 'RCT', access: 'Abstract on PubMed' },
+  deliver2022: { t: 'Dapagliflozin in heart failure with mildly reduced or preserved ejection fraction (DELIVER)', c: 'Solomon SD, et al. N Engl J Med. 2022;387:1089–1098.', type: 'RCT', access: 'Abstract on PubMed' },
+  rales1999: { t: 'The effect of spironolactone on morbidity and mortality in patients with severe heart failure (RALES)', c: 'Pitt B, et al. N Engl J Med. 1999;341:709–717.', type: 'RCT', access: 'Abstract on PubMed' },
+  juurlink2004: { t: 'Rates of hyperkalemia after publication of the Randomized Aldactone Evaluation Study', c: 'Juurlink DN, et al. N Engl J Med. 2004;351:543–551.', type: 'Observational', access: 'Abstract on PubMed' },
+  maisel2002: { t: 'Rapid measurement of B-type natriuretic peptide in the emergency diagnosis of heart failure', c: 'Maisel AS, et al. N Engl J Med. 2002;347:161–167.', type: 'Diagnostic study', access: 'Abstract on PubMed' },
+  kdigo2024: { t: 'KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease', c: 'Kidney Int. 2024;105(4S):S117–S314.', type: 'Guideline', access: 'Free to read' },
+  ukka2020: { t: 'Clinical Practice Guidelines: Treatment of Acute Hyperkalaemia in Adults', c: 'UK Kidney Association (formerly Renal Association), 2020.', type: 'Guideline', access: 'Free to read' },
+  mlp_hf: { t: 'Heart failure (patient information)', c: 'MedlinePlus, U.S. National Library of Medicine.', type: 'Patient resource', access: 'Free' },
+  mlp_k: { t: 'High potassium level (patient information)', c: 'MedlinePlus, U.S. National Library of Medicine.', type: 'Patient resource', access: 'Free' },
+  chart: { t: 'Robert Ellis: chart data (FHIR)', c: 'K⁺ 4.6 → 4.9 → 5.1 mmol/L · eGFR 42 · lisinopril 10 mg, spironolactone 25 mg · TTE not yet done', type: 'Patient chart', access: 'Your EHR', chart: true },
+};
+const pubmed = id => REF[id].chart ? null : `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(REF[id].t)}`;
+
+/* =====================================================================
+   ANSWERS — {id} markers become numbered citations. Three reading levels.
+   ===================================================================== */
+const ANSWERS = [
+  { id: 'spiro', q: 'Should I hold spironolactone when potassium is 5.1?', ctx: true, sub: 'Uses Robert Ellis\'s chart',
+    steps: ['Reading chart: potassium trend, eGFR, medicines', 'Checking AHA/ACC/HFSA 2022 MRA criteria', 'Checking hyperkalemia evidence (RALES, Juurlink)', 'Writing three reading levels'],
+    ctxLead: 'For Robert Ellis, holding or reducing the next dose and rechecking potassium is the cautious, guideline-consistent choice.',
+    genLead: 'At 5.1 mmol/L, most patients are above the threshold for starting an MRA but below the level where the guideline says to stop it.',
+    clinician: `<p>{chart} Potassium is rising (4.6 → 4.9 → 5.1 mmol/L) with eGFR 42 and concurrent lisinopril.</p>
+      <p>The 2022 AHA/ACC/HFSA guideline lists <b>eGFR &gt;30 and K⁺ &lt;5.0 mEq/L</b> as conditions for MRA use, with close monitoring of potassium and renal function. It says the MRA should be <b>discontinued if potassium cannot be kept below 5.5 mEq/L</b> (Class 3: Harm). {aha2022}</p>
+      <p>At 5.1, reasonable options are to hold one dose or halve it and recheck potassium, while addressing contributors: ACE inhibitor dose, potassium supplements, salt substitutes, NSAIDs, and worsening renal function. {kdigo2024}</p>
+      <p>RALES enrolled patients with baseline creatinine ≤2.5 mg/dL and potassium ≤5.0 mmol/L, with protocolized monitoring. {rales1999} After RALES, hyperkalemia-related admissions and deaths rose in routine practice when those conditions weren't replicated. {juurlink2004}</p>`,
+    nurse: `<p><b>Before the 09:00 spironolactone, confirm with the prescriber whether to give it.</b> Potassium is 5.1 and rising. {chart}</p>
+      <h3>Watch for</h3><ul><li>Muscle weakness, palpitations, or new ECG changes on telemetry. Escalate per your unit's hyperkalemia protocol. {ukka2020}</li><li>Falling urine output or rising creatinine on the next panel.</li></ul>
+      <h3>Ask the patient</h3><ul><li>Any salt substitutes, potassium supplements or "heart-healthy" low-sodium products at home? Many contain potassium. {mlp_k}</li></ul>`,
+    patient: `<p>Your potassium, a mineral in your blood, is a little high. One of your heart medicines, <b>spironolactone</b>, can raise it. {mlp_k}</p>
+      <p>Your doctor may pause it for a day or lower the dose, then check your blood again. This is common and usually temporary. {aha2022}</p>
+      <p><b>Please avoid salt substitutes.</b> Many are made with potassium. {mlp_k}</p>`,
+    unknown: 'Not in the chart: home use of salt substitutes or potassium supplements. Ejection fraction is unknown, and the strongest MRA evidence is in HFrEF.',
+    follow: ['How is acute hyperkalemia treated?', 'Should we start an SGLT2 inhibitor?', 'Bolus or continuous IV furosemide?'], topic: 'hyperk' },
+  { id: 'furo', q: 'Bolus or continuous IV furosemide in acute decompensated heart failure?',
+    steps: ['Searching randomized trials', 'Reading DOSE and ADVOR', 'Checking AHA/ACC/HFSA 2022 diuretic recommendations', 'Writing three reading levels'],
+    genLead: 'Neither is clearly better for symptom relief. Choose what\u2019s practical, and intensify if diuresis is inadequate.',
+    clinician: `<p>In <b>DOSE</b> (308 patients, 2×2 factorial), bolus vs continuous infusion, and low dose (equal to the home oral dose, IV) vs high dose (2.5× the home oral dose), showed <b>no significant difference</b> in the patient's global symptom assessment or change in creatinine at 72 h. The high-dose strategy gave more net fluid loss and weight loss, with more transient worsening of renal function. {dose2011}</p>
+      <p>The 2022 AHA/ACC/HFSA guideline recommends <b>prompt IV loop diuretics</b> for congestion (Class 1). When diuresis is inadequate, it supports <b>intensifying</b> with higher IV doses or adding a second diuretic (Class 2a). {aha2022}</p>
+      <p>In <b>ADVOR</b>, adding IV acetazolamide to loop diuretics increased successful decongestion within 3 days. It was not powered for death or readmission. {advor2022}</p>`,
+    nurse: `<p>Either way of giving it works similarly for symptoms. What matters is <b>tracking response</b>. {dose2011}</p>
+      <h3>Monitor</h3><ul><li>Strict intake/output and urine output after each dose. Same-scale morning weights.</li><li>Daily potassium, magnesium and creatinine. High doses cause more transient creatinine rise. {dose2011}</li><li>BP and dizziness on standing. Use fall precautions.</li><li>Give high IV doses at the rate in your protocol. Rapid high-dose loop diuretics can affect hearing.</li></ul>
+      <h3>Escalate if</h3><ul><li>Urine output stays low after a dose, or weight isn't falling. The prescriber may intensify the regimen. {aha2022}</li></ul>`,
+    patient: `<p>Your water pill goes through your IV. Whether it's given all at once or slowly over the day, it works about the same for how you feel. {dose2011}</p>
+      <p>You'll pee a lot afterward. Please ask for help getting to the bathroom. {mlp_hf}</p>`,
+    follow: ['Does acetazolamide help decongestion?', 'Should I hold spironolactone when potassium is 5.1?'], topic: 'loop' },
+  { id: 'sglt2', q: 'Should we start an SGLT2 inhibitor in heart failure?', ctx: true,
+    steps: ['Checking chart: ejection fraction (not found), eGFR', 'Reading DAPA-HF, EMPEROR-Reduced, EMPEROR-Preserved, DELIVER', 'Comparing AHA/ACC 2022 vs ESC 2023 classes', 'Writing three reading levels'],
+    ctxLead: 'For Robert Ellis, get the echo first. The strength of the recommendation depends on ejection fraction.',
+    genLead: 'Yes, across the ejection fraction range. The recommendation is strongest in HFrEF.',
+    clinician: `<p><b>HFrEF (EF ≤40%):</b> dapagliflozin and empagliflozin reduced the composite of cardiovascular death or worsening heart failure, in patients with and without diabetes. {dapahf2019} {empred2020} AHA/ACC/HFSA 2022: <b>Class 1</b>. {aha2022}</p>
+      <p><b>EF &gt;40%:</b> EMPEROR-Preserved (HR 0.79) and DELIVER (HR 0.82) reduced the composite of cardiovascular death or heart failure events. {emppres2021} {deliver2022} AHA/ACC/HFSA 2022 grades this <b>Class 2a</b>. The 2023 ESC focused update grades it <b>Class I</b>. {aha2022} {esc2023}</p>
+      <p>{chart} EF is unknown, so the TTE comes first. eGFR 42 is within the ranges studied. Check current labeling for kidney-function limits.</p>`,
+    nurse: `<p>If it's started:</p><ul><li>Watch for <b>dizziness or low BP</b>, especially alongside IV diuretics.</li><li>Genital hygiene teaching. Yeast infections are a known side effect.</li><li>It's usually <b>held when the patient is NPO, acutely ill or before surgery</b>, because of the rare risk of ketoacidosis with normal glucose. Follow your order set.</li></ul><p>The decision depends on the echo result. {aha2022}</p>`,
+    patient: `<p>This is a newer kind of heart medicine. It also makes your body pass a little sugar in your urine. In large studies it helped people with heart failure stay out of the hospital. {empred2020} {deliver2022}</p>
+      <p>Your doctor will decide after your heart ultrasound shows how your heart is pumping.</p>`,
+    unknown: 'Ejection fraction is not in the chart yet (TTE pending).',
+    follow: ['Bolus or continuous IV furosemide?', 'What should happen in the first weeks after discharge?'], topic: 'sglt2' },
+  { id: 'aceta', q: 'Does acetazolamide help decongestion?',
+    steps: ['Searching randomized trials', 'Reading ADVOR', 'Checking guideline position', 'Writing three reading levels'],
+    genLead: 'Added to IV loop diuretics, it improved early decongestion in one large trial. It has not been shown to reduce death or readmission.',
+    clinician: `<p>In <b>ADVOR</b> (519 patients with acute decompensated heart failure and volume overload), IV acetazolamide added to IV loop diuretics increased <b>successful decongestion within 3 days</b> compared with placebo. Hospital stay was shorter as a secondary endpoint. The trial was not powered for death or HF readmission. {advor2022}</p>
+      <p>The 2022 AHA/ACC/HFSA guideline supports adding a second diuretic when diuresis is inadequate. {aha2022}</p>`,
+    nurse: `<p>If added: monitor <b>bicarbonate and potassium</b>. Acetazolamide can cause metabolic acidosis and low potassium. Keep tracking urine output and weight. {advor2022}</p>`,
+    patient: `<p>This is a second medicine that can help the water pill remove extra fluid faster. {advor2022}</p>`,
+    follow: ['Bolus or continuous IV furosemide?'], topic: 'loop' },
+  { id: 'hyperk', q: 'How is acute hyperkalemia treated?',
+    steps: ['Reading UK Kidney Association acute hyperkalaemia guideline', 'Reading KDIGO 2024', 'Writing three reading levels'],
+    genLead: 'Protect the heart, shift potassium into cells, remove potassium from the body, then monitor and prevent recurrence.',
+    clinician: `<p>The UK Kidney Association guideline grades severity as <b>mild 5.5–5.9, moderate 6.0–6.4, severe ≥6.5 mmol/L</b>. ECG changes raise urgency at any level. {ukka2020}</p>
+      <ul><li><b>Protect the myocardium:</b> IV calcium when there are ECG changes. It does not lower potassium.</li><li><b>Shift potassium:</b> insulin with glucose, with nebulized salbutamol as an adjunct. Monitor glucose afterward for hypoglycemia.</li><li><b>Remove potassium:</b> potassium binders, loop diuretics where appropriate, dialysis if refractory.</li><li><b>Prevent:</b> review RAAS inhibitors, MRAs, potassium supplements, trimethoprim, NSAIDs and heparin.</li></ul>
+      <p>Doses and thresholds should follow your local protocol. {ukka2020} {kdigo2024}</p>`,
+    nurse: `<ul><li>Continuous cardiac monitoring. Report peaked T waves, a widening QRS, or arrhythmias right away. {ukka2020}</li><li>After insulin and glucose, <b>check blood glucose</b> at the intervals in your protocol. Hypoglycemia is the main early risk.</li><li>Repeat potassium as ordered. The shift is temporary.</li></ul>`,
+    patient: `<p>When potassium is very high, it can affect the heartbeat. The team may connect a heart monitor and give medicines that quickly move potassium out of the blood, then help your body get rid of the extra. {mlp_k}</p>`,
+    follow: ['Should I hold spironolactone when potassium is 5.1?'], topic: 'hyperk' },
+  { id: 'post', q: 'What should happen in the first weeks after discharge?',
+    steps: ['Reading AHA/ACC/HFSA 2022 transitions of care', 'Reading STRONG-HF and ESC 2023', 'Writing three reading levels'],
+    genLead: 'Early follow-up and steady up-titration of guideline-directed medical therapy.',
+    clinician: `<p>AHA/ACC/HFSA 2022: an <b>early follow-up visit, generally within 7 days</b> of discharge, is reasonable (Class 2a). Pre-existing GDMT should be continued and optimized during the hospitalization unless contraindicated (Class 1). {aha2022}</p>
+      <p>In <b>STRONG-HF</b>, rapid up-titration of GDMT with frequent visits in the 6 weeks after discharge reduced 180-day death or HF readmission compared with usual care. {strong2022} The 2023 ESC focused update recommends this intensive strategy. {esc2023}</p>`,
+    nurse: `<ul><li>Teach-back on every new medicine and on daily weights. {mlp_hf}</li><li>Confirm that the follow-up visit is booked within 7 days before discharge. {aha2022}</li><li>Make sure the patient has a working scale and knows when to call.</li></ul>`,
+    patient: `<p>You'll see your heart team within about a week of going home. Over the next few weeks they'll adjust your medicines step by step. {aha2022}</p><p>Weigh yourself every morning and call if you gain weight quickly or get more short of breath. {mlp_hf}</p>`,
+    follow: ['Should we start an SGLT2 inhibitor?'], topic: 'adhf' },
+];
+const FIND = q => ANSWERS.find(a => a.q.toLowerCase() === q.toLowerCase()) || ANSWERS.find(a => {
+  const w = q.toLowerCase();
+  return (a.id === 'spiro' && /spiro|mra|potassium.*hold|hold.*spiro/.test(w)) || (a.id === 'furo' && /bolus|continuous|furosemide|lasix/.test(w)) ||
+    (a.id === 'sglt2' && /sglt|gliflozin|dapagli|empagli/.test(w)) || (a.id === 'aceta' && /acetazol|advor/.test(w)) ||
+    (a.id === 'hyperk' && /hyperkal|high potassium|treat.*potassium/.test(w)) || (a.id === 'post' && /discharge|follow.?up|after.*hospital/.test(w));
+});
+
+/* =====================================================================
+   ENCYCLOPEDIA TOPICS
+   ===================================================================== */
+const TOPICS = [
+  { id: 'adhf', title: 'Acute decompensated heart failure', area: 'Cardiology', reviewed: 'Checked 2026-10-18 against AHA/ACC/HFSA 2022 and ESC 2023',
+    key: ['Natriuretic peptides support the diagnosis. In acute dyspnea, BNP below 100 pg/mL makes heart failure unlikely. {maisel2002}', 'Treat congestion promptly with IV loop diuretics, and intensify if response is inadequate. {aha2022} {dose2011}', 'Get an echocardiogram in suspected or new heart failure. {aha2022}', 'Continue and optimize GDMT in hospital, follow up early, and up-titrate quickly after discharge. {aha2022} {strong2022}'],
+    recs: [['IV loop diuretics for congestion in hospitalized HF', '1', 'B-NR', 'aha2022'], ['Intensify diuretics (higher dose or second diuretic) if diuresis is inadequate', '2a', 'B-NR', 'aha2022'], ['TTE in suspected or newly diagnosed HF', '1', 'C-LD', 'aha2022'], ['Continue and optimize pre-existing GDMT in HFrEF during hospitalization unless contraindicated', '1', 'B-NR', 'aha2022'], ['Early follow-up, generally within 7 days of discharge', '2a', 'B-NR', 'aha2022']],
+    sections: [
+      ['Diagnosis', `<p>Diagnosis is clinical: dyspnea, orthopnea, raised JVP, crackles and edema, supported by natriuretic peptides and imaging. In the Breathing Not Properly study, a BNP cut-off of 100 pg/mL was 90% sensitive and 76% specific for heart failure as the cause of acute dyspnea. {maisel2002} Kidney disease, age and atrial fibrillation can raise BNP without heart failure.</p>`],
+      ['Treatment', `<p>Give IV loop diuretics early. Bolus and continuous infusion performed similarly in DOSE. {dose2011} Add a second diuretic or raise the dose when response is inadequate. {aha2022} Acetazolamide improved early decongestion in ADVOR. {advor2022} SGLT2 inhibitors are now recommended across the ejection fraction spectrum. {aha2022} {esc2023}</p>`],
+      ['Nursing care', `<ul><li>Same-scale morning weights, strict intake/output, and fluid and sodium limits as ordered.</li><li>Daily electrolytes and creatinine during IV diuresis.</li><li>Orthostatic precautions and fall prevention.</li><li>Teach-back before discharge: medicines, daily weights, and when to call. {mlp_hf}</li></ul>`],
+      ['For patients', `<p>Heart failure means the heart can't keep up with what the body needs. Fluid backs up into the lungs and legs. Water pills, daily weights and a few key medicines help most people feel much better. {mlp_hf}</p>`],
+    ],
+    changes: [['2021', 'ESC HF guideline: SGLT2i Class I in HFrEF.'], ['2022', 'AHA/ACC/HFSA guideline: SGLT2i Class 1 (HFrEF) and 2a (EF >40%). DELIVER and STRONG-HF published. {aha2022} {deliver2022} {strong2022}'], ['2023', 'ESC focused update: SGLT2i Class I in HFmrEF/HFpEF, plus an intensive post-discharge strategy. {esc2023}']],
+    related: ['hyperk', 'loop', 'sglt2'] },
+  { id: 'hyperk', title: 'Hyperkalemia', area: 'Nephrology · Emergency', reviewed: 'Checked 2026-10-18 against UKKA 2020 and KDIGO 2024',
+    key: ['Severity: mild 5.5–5.9, moderate 6.0–6.4, severe ≥6.5 mmol/L. ECG changes raise urgency at any level. {ukka2020}', 'Protect the heart (IV calcium), shift potassium (insulin-glucose, salbutamol), remove it, and monitor glucose. {ukka2020}', 'In heart failure, MRAs require K⁺ <5.0 to start, and should stop if K⁺ can’t be kept below 5.5. {aha2022}', 'Common drug causes: RAAS inhibitors, MRAs, potassium supplements, trimethoprim, NSAIDs, heparin. {kdigo2024}'],
+    recs: [['Discontinue MRA if K⁺ cannot be maintained <5.5 mEq/L', '3: Harm', 'B-NR', 'aha2022'], ['MRA use requires eGFR >30 and K⁺ <5.0 mEq/L (HFrEF)', '1', 'A', 'aha2022']],
+    sections: [
+      ['Recognition', `<p>Often symptomless. When present: weakness, palpitations or arrhythmias. ECG findings such as peaked T waves or a broad QRS need urgent treatment. {ukka2020}</p>`],
+      ['Emergency treatment', `<p>Give IV calcium for ECG changes. It stabilizes the myocardium without lowering potassium. Then insulin with glucose, with salbutamol as an adjunct. Monitor glucose for several hours afterward. Remove potassium with binders or dialysis if refractory. Use doses from your local protocol. {ukka2020}</p>`],
+      ['Heart failure context', `<p>RALES enrolled patients with K⁺ ≤5.0 and creatinine ≤2.5 mg/dL, with close monitoring. {rales1999} When spironolactone use rose after RALES, hyperkalemia admissions and deaths rose too. {juurlink2004}</p>`],
+      ['For patients', `<p>Potassium is a mineral your heart and muscles need, but too much can upset your heartbeat. Avoid salt substitutes unless your doctor says otherwise. {mlp_k}</p>`],
+    ],
+    changes: [['2004', 'Post-RALES hyperkalemia signal in routine practice. {juurlink2004}'], ['2020', 'UK Kidney Association acute hyperkalaemia guideline update. {ukka2020}'], ['2024', 'KDIGO CKD guideline update. {kdigo2024}']],
+    related: ['adhf', 'loop'] },
+  { id: 'sglt2', title: 'SGLT2 inhibitors in heart failure', area: 'Cardiology · Pharmacology', reviewed: 'Checked 2026-10-18 against AHA/ACC/HFSA 2022 and ESC 2023',
+    key: ['HFrEF: reduce CV death or worsening HF, with or without diabetes. {dapahf2019} {empred2020}', 'EF >40%: reduce CV death or HF events (EMPEROR-Preserved HR 0.79, DELIVER HR 0.82). {emppres2021} {deliver2022}', 'Guidelines differ: AHA 2022 Class 2a vs ESC 2023 Class I for EF >40%. {aha2022} {esc2023}'],
+    recs: [['SGLT2i in symptomatic chronic HFrEF', '1', 'A', 'aha2022'], ['SGLT2i in HFmrEF and HFpEF', '2a', 'B-R', 'aha2022'], ['SGLT2i in HFmrEF and HFpEF (ESC)', 'I', 'A', 'esc2023']],
+    sections: [
+      ['Trial evidence', `<table class="rtab"><thead><tr><th>Trial</th><th>Population</th><th>Primary result</th></tr></thead><tbody>
+        <tr><td>DAPA-HF {dapahf2019}</td><td>HFrEF</td><td>Fewer worsening HF events or CV deaths</td></tr>
+        <tr><td>EMPEROR-Reduced {empred2020}</td><td>HFrEF</td><td>Fewer CV deaths or HF hospitalizations</td></tr>
+        <tr><td>EMPEROR-Preserved {emppres2021}</td><td>EF &gt;40%</td><td>HR 0.79 for CV death or HF hospitalization</td></tr>
+        <tr><td>DELIVER {deliver2022}</td><td>EF &gt;40%</td><td>HR 0.82 for worsening HF or CV death</td></tr></tbody></table>`],
+      ['Practical use', `<ul><li>Counsel on volume depletion when combined with diuretics, and on genital hygiene.</li><li>Hold when the patient is acutely ill, NPO or before surgery, per your order set, because of the rare risk of euglycemic ketoacidosis.</li><li>Check current labeling for eGFR limits.</li></ul>`],
+    ],
+    changes: [['2019', 'DAPA-HF. {dapahf2019}'], ['2020', 'EMPEROR-Reduced. {empred2020}'], ['2021', 'EMPEROR-Preserved. {emppres2021}'], ['2022', 'DELIVER, and AHA/ACC/HFSA guideline. {deliver2022} {aha2022}'], ['2023', 'ESC upgrade to Class I for EF >40%. {esc2023}']],
+    related: ['adhf'] },
+  { id: 'loop', title: 'Loop diuretics in acute heart failure', area: 'Pharmacology', reviewed: 'Checked 2026-10-18 against AHA/ACC/HFSA 2022',
+    key: ['Bolus and continuous infusion gave similar symptom relief in DOSE. {dose2011}', 'A high dose (2.5× home oral) gave more fluid loss, with transient creatinine rise. {dose2011}', 'Intensify if inadequate: higher dose or a second diuretic. {aha2022}', 'Acetazolamide add-on improved early decongestion (ADVOR). {advor2022}'],
+    recs: [['IV loop diuretics for congestion in hospitalized HF', '1', 'B-NR', 'aha2022'], ['Intensify regimen when diuresis is inadequate', '2a', 'B-NR', 'aha2022']],
+    sections: [
+      ['Monitoring', `<ul><li>Urine output, weight, BP and orthostatic symptoms.</li><li>Daily potassium, magnesium and creatinine.</li><li>Give high IV doses at the rate in your protocol to limit ototoxicity risk.</li></ul>`],
+      ['For patients', `<p>Water pills help your kidneys remove extra fluid. You'll pee more for a few hours after each dose. {mlp_hf}</p>`],
+    ],
+    changes: [['2011', 'DOSE trial. {dose2011}'], ['2022', 'ADVOR, and AHA/ACC/HFSA guideline. {advor2022} {aha2022}']],
+    related: ['adhf', 'hyperk'] },
+];
+
+/* =====================================================================
+   STATE + HELPERS
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ic = id => `<svg class="ic" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const st = { view: 'ask', aud: 'clinician', ctx: true, cur: null, topic: 'adhf' };
+const store = { get(k, d) { try { const v = localStorage.getItem('nomi.atlas.' + k); return v === null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('nomi.atlas.' + k, v); } catch (e) {} } };
+
+/* Turn {id} markers into numbered, linked citations */
+function cite(html, order) {
+  return html.replace(/\{(\w+)\}/g, (m, id) => {
+    if (!REF[id]) return m;
+    if (!order.includes(id)) order.push(id);
+    const n = order.indexOf(id) + 1;
+    return `<button class="c" data-ref="${id}" aria-label="Source ${n}: ${esc(REF[id].t)}">${n}</button>`;
+  });
+}
+function refCard(id, n) {
+  const r = REF[id], url = pubmed(id);
+  return `<div class="ref" id="ref-${id}" data-ref-card="${id}"><span class="n">${n}</span><div><b>${esc(r.t)}</b><div class="cit">${esc(r.c)}</div>
+    <div class="tags"><span class="tag ${r.chart ? 'chart' : 'type'}">${esc(r.type)}</span><span class="tag ${/Free/.test(r.access) ? 'open' : ''}">${esc(r.access)}</span></div>
+    ${url ? `<a href="${url}" target="_blank" rel="noopener">${ic('ext')}Find on PubMed</a>` : ''}</div></div>`;
+}
+let tt; function toast(m) { const t = $('#toast'); t.innerHTML = ic('check') + esc(m); t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2400); }
+
+/* =====================================================================
+   NAV, AUDIENCE, CONTEXT, THEME
+   ===================================================================== */
+function go(v) {
+  st.view = v;
+  $$('.view').forEach(x => x.classList.toggle('active', x.id === 'v-' + v));
+  $$('.tabs button').forEach(b => b.dataset.go === v ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  if (v === 'atlas') renderTopic(st.topic);
+  window.scrollTo({ top: 0 });
+  buddyContext();
+}
+document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); if (g.dataset.go === 'ask') resetAsk(); go(g.dataset.go); } });
+$('#aud').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  st.aud = b.dataset.v; document.documentElement.dataset.aud = st.aud;
+  $$('#aud button').forEach(x => x.setAttribute('aria-checked', x === b));
+  if (st.cur && st.view === 'ask') renderAnswer(st.cur, true);
+  if (st.view === 'atlas') renderTopic(st.topic);
+  buddyContext();
+});
+$('#ctx-tog').addEventListener('change', e => {
+  st.ctx = e.target.checked; $('#ctx').dataset.on = st.ctx;
+  $('#ctx-note').style.visibility = st.ctx ? 'visible' : 'hidden';
+  renderSugs();
+  if (st.cur) renderAnswer(st.cur, true);
+  toast(st.ctx ? 'Patient context on: answers consider Robert’s chart' : 'Patient context off: general answers');
+});
+$('#theme').addEventListener('click', () => {
+  const d = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = d; store.set('theme', d);
+  $('#theme use').setAttribute('href', d === 'dark' ? '#i-sun' : '#i-moon');
+});
+if (document.documentElement.dataset.theme === 'dark') $('#theme use').setAttribute('href', '#i-sun');
+
+/* =====================================================================
+   ASK
+   ===================================================================== */
+function renderSugs() {
+  const list = ANSWERS.slice(0, 4);
+  $('#sugs').innerHTML = list.map(a => `<button class="sug" data-ask="${a.id}">${ic(a.ctx && st.ctx ? 'user' : 'search')}<span>${esc(a.q)}${a.ctx && st.ctx ? '<small>Uses Robert’s chart</small>' : ''}</span></button>`).join('');
+}
+renderSugs();
+document.addEventListener('click', e => { const s = e.target.closest('[data-ask]'); if (s) ask(ANSWERS.find(a => a.id === s.dataset.ask)); });
+const qa = $('#q');
+qa.addEventListener('input', () => { qa.style.height = 'auto'; qa.style.height = qa.scrollHeight + 'px'; });
+qa.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#qform').requestSubmit(); } });
+$('#qform').addEventListener('submit', e => {
+  e.preventDefault(); const v = qa.value.trim(); if (!v) return;
+  const m = FIND(v);
+  ask(m || { id: 'none', q: v, steps: ['Searching guidelines', 'Searching PubMed', 'Checking evidence quality'], genLead: 'NOMI couldn’t find enough cited evidence in this prototype’s index to answer that safely.', clinician: '<p>Rather than guess, NOMI tells you when its sources don’t cover a question. Try one of the suggested questions, or browse the Encyclopedia.</p>', nurse: '<p>NOMI couldn’t find a cited answer. Check with the prescriber or pharmacist.</p>', patient: '<p>NOMI couldn’t find a trusted answer to this. Please ask your care team.</p>', follow: ANSWERS.slice(0, 3).map(a => a.q) });
+});
+function resetAsk() { st.cur = null; $('#ask-home').hidden = false; $('#ask-ans').hidden = true; qa.value = ''; }
+
+let running = false;
+async function ask(a) {
+  if (running) return; running = true;
+  st.cur = a; go('ask');
+  $('#ask-home').hidden = true; const host = $('#ask-ans'); host.hidden = false;
+  const useCtx = a.ctx && st.ctx;
+  const steps = a.steps.filter(s => useCtx || !/chart/i.test(s));
+  host.innerHTML = `<div class="ans-wrap"><div><h1 class="ans-q">${esc(a.q)}</h1>
+    <div class="ans-meta">${useCtx ? `<span class="pill ctx-on">${ic('user')}Robert Ellis · Bed 12</span>` : ''}<span class="pill">${ic('book')}${audLabel()}</span></div>
+    <ol class="steps" id="steps">${steps.map(s => `<li>${ic('refresh')}${esc(s)}</li>`).join('')}</ol></div><aside></aside></div>`;
+  $('#b-orb').classList.add('think');
+  for (const li of $$('#steps li')) {
+    li.className = 'doing'; li.querySelector('svg').classList.add('spin');
+    await new Promise(r => setTimeout(r, 420));
+    li.className = 'done'; li.querySelector('svg').classList.remove('spin'); li.querySelector('use').setAttribute('href', '#i-check');
+  }
+  $('#b-orb').classList.remove('think');
+  running = false;
+  renderAnswer(a);
+}
+const audLabel = () => ({ clinician: 'Clinician level', nurse: 'Nurse level', patient: 'Patient level' })[st.aud];
+function renderAnswer(a, instant) {
+  const useCtx = a.ctx && st.ctx;
+  const order = [];
+  const lead = cite(`<p class="lead">${esc(useCtx && a.ctxLead ? a.ctxLead : a.genLead)}</p>`, order);
+  let body = a[st.aud] || a.clinician;
+  // Without patient context, drop chart-specific paragraphs entirely.
+  if (!useCtx) body = body.replace(/<p>(?:(?!<\/p>)[\s\S])*?\{chart\}[\s\S]*?<\/p>/g, '').replace(/\{chart\}/g, '');
+  const html = cite(body, order);
+  $('#ask-ans').innerHTML = `<div class="ans-wrap">
+    <div>
+      <h1 class="ans-q">${esc(a.q)}</h1>
+      <div class="ans-meta">${useCtx ? `<span class="pill ctx-on">${ic('user')}Robert Ellis · Bed 12</span>` : ''}<span class="pill">${ic('book')}${audLabel()}</span><span class="pill ok">${ic('shield')}${order.length} sources · unsponsored</span></div>
+      <div class="ans-body ${instant ? '' : 'fade-in'}">${lead}${html}</div>
+      ${useCtx && a.unknown ? `<div class="unknown">${ic('alert')}<div><b>What NOMI can't see:</b> ${esc(a.unknown)}</div></div>` : ''}
+      <div class="ans-actions">
+        <button class="btn" id="copy-ans">${ic('copy')}Copy with citations</button>
+        ${useCtx ? `<button class="btn" id="to-handoff">${ic('clip')}Add to Bed 12 handoff</button>` : ''}
+        ${a.topic ? `<button class="btn" data-topic="${a.topic}">${ic('book')}Open encyclopedia page</button>` : ''}
+      </div>
+      <div class="followups"><h3>Related questions</h3>${a.follow.map(f => `<button class="fu" data-fu="${esc(f)}"><span>${esc(f)}</span>${ic('arrow')}</button>`).join('')}</div>
+    </div>
+    <aside class="refs"><h2><span>Sources</span><span>${order.length}</span></h2>${order.map((id, i) => refCard(id, i + 1)).join('')}</aside>
+  </div>`;
+  $('#copy-ans')?.addEventListener('click', () => {
+    const txt = $('.ans-body').innerText + '\n\nSources:\n' + order.map((id, i) => `${i + 1}. ${REF[id].t}. ${REF[id].c}`).join('\n');
+    try { navigator.clipboard.writeText(txt).then(() => toast('Copied with citations')); } catch (e) { toast('Copy not available here'); }
+  });
+  $('#to-handoff')?.addEventListener('click', () => toast('Added to the Bed 12 handoff draft for review'));
+  buddyContext();
+}
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-fu]'); if (f) { const m = FIND(f.dataset.fu); if (m) ask(m); }
+  const t = e.target.closest('[data-topic]'); if (t) { st.topic = t.dataset.topic; go('atlas'); }
+  const c = e.target.closest('.c');
+  if (c) {
+    const card = document.querySelector(`[data-ref-card="${c.dataset.ref}"]`) || document.getElementById('rl-' + c.dataset.ref);
+    $$('.ref.hl, .reflist li.hl, .c.hl').forEach(x => x.classList.remove('hl'));
+    $$(`.c[data-ref="${c.dataset.ref}"]`).forEach(x => x.classList.add('hl'));
+    if (card) { card.classList.add('hl'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }
+});
+
+/* =====================================================================
+   ENCYCLOPEDIA
+   ===================================================================== */
+function renderTopics(filter = '') {
+  const f = filter.toLowerCase();
+  $('#topics').innerHTML = TOPICS.filter(t => !f || t.title.toLowerCase().includes(f) || t.area.toLowerCase().includes(f))
+    .map(t => `<li><button data-t="${t.id}" aria-current="${t.id === st.topic}">${esc(t.title)}<small>${esc(t.area)}</small></button></li>`).join('') || '<li style="color:var(--ink-3);padding:.6rem">No topics match.</li>';
+}
+$('#tf').addEventListener('input', e => renderTopics(e.target.value));
+$('#topics').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { st.topic = b.dataset.t; renderTopic(st.topic); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+const AUD_SECTIONS = { clinician: null, nurse: ['Nursing care', 'Monitoring', 'Practical use', 'Recognition', 'Emergency treatment'], patient: ['For patients'] };
+function renderTopic(id) {
+  const t = TOPICS.find(x => x.id === id); st.topic = id; renderTopics($('#tf').value);
+  const order = [];
+  const keep = AUD_SECTIONS[st.aud];
+  let secs = keep ? t.sections.filter(([h]) => keep.includes(h)) : t.sections;
+  if (!secs.length) secs = t.sections;
+  const showRecs = st.aud !== 'patient';
+  const h = `
+    <div class="kicker">${esc(t.area)}</div>
+    <h1>${esc(t.title)}</h1>
+    <div class="byline"><span class="pill ok">${ic('shield')}${esc(t.reviewed)}</span><span class="pill">${ic('book')}${audLabel()}</span></div>
+    ${st.aud !== 'clinician' ? `<div class="audnote">${ic('info')}<div>Showing the <b>${st.aud}</b> view of this page. Switch to <b>Clinician</b> at the top for the full article. The sources are the same.</div></div>` : ''}
+    <div class="keybox"><h3>Key points</h3><ul>${t.key.map(k => `<li>${cite(esc(k).replace(/\{(\w+)\}/g, '{$1}'), order)}</li>`).join('')}</ul></div>
+    ${showRecs ? `<h2 id="s-recs">Guideline recommendations</h2>
+      <table class="rtab"><thead><tr><th>Recommendation</th><th>Class</th><th>Evidence</th><th>Source</th></tr></thead><tbody>
+      ${t.recs.map(([r, c, l, s]) => `<tr><td>${esc(r)}</td><td><span class="cls ${c === '1' || c === 'I' ? 'c1' : c.startsWith('2') ? 'c2a' : c.startsWith('3') ? 'c3' : 'cx'}">${esc(c)}</span></td><td><span class="cls cx">${esc(l)}</span></td><td>${cite(`{${s}}`, order)}</td></tr>`).join('')}
+      </tbody></table><p style="font-family:var(--sans);font-size:.85rem;color:var(--ink-3)">Class and level of evidence are quoted from the cited guideline. Class 3: Harm means "do not do."</p>` : ''}
+    ${secs.map(([hd, body], i) => `<h2 id="s-${i}">${esc(hd)}</h2>${cite(body, order)}`).join('')}
+    ${st.aud !== 'patient' ? `<h2 id="s-changes">What changed</h2><ul class="timeline">${t.changes.map(([y, c]) => `<li><span class="yr">${y}</span><span>${cite(esc(c).replace(/\{(\w+)\}/g, '{$1}'), order)}</span></li>`).join('')}</ul>` : ''}
+    <h2 id="s-rel">Related</h2><div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem">${t.related.map(r => `<button class="btn" data-t2="${r}">${ic('book')}${esc(TOPICS.find(x => x.id === r).title)}</button>`).join('')}</div>
+    <h2 id="s-refs">References</h2><ol class="reflist">${order.map((rid, i) => `<li id="rl-${rid}"><span class="n">${i + 1}</span><span>${esc(REF[rid].t)}. ${esc(REF[rid].c)} <span class="tag ${/Free/.test(REF[rid].access) ? 'open' : ''}">${esc(REF[rid].access)}</span></span></li>`).join('')}</ol>`;
+  $('#art').innerHTML = h;
+  $('#toc-r').innerHTML = `<h3>On this page</h3>${showRecs ? '<a href="#s-recs">Recommendations</a>' : ''}${secs.map(([hd], i) => `<a href="#s-${i}">${esc(hd)}</a>`).join('')}${st.aud !== 'patient' ? '<a href="#s-changes">What changed</a>' : ''}<a href="#s-refs">References</a>`;
+  buddyContext();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-t2]'); if (b) { renderTopic(b.dataset.t2); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+renderTopics();
+
+/* =====================================================================
+   SOURCES
+   ===================================================================== */
+const OPEN = [
+  ['PubMed / MEDLINE', 'U.S. National Library of Medicine. 35M+ citations and abstracts, free to search.', 'Free'],
+  ['PubMed Central Open Access', 'Full-text articles licensed for reuse. NOMI can quote these directly.', 'Free full text'],
+  ['ClinicalTrials.gov', 'Registered trials, eligibility and results, through a public API.', 'Free'],
+  ['DailyMed / openFDA', 'FDA drug labels: indications, dosing, warnings and interactions.', 'Free'],
+  ['MedlinePlus', 'Plain-language patient information from the NLM. Powers the Patient reading level.', 'Free'],
+  ['Society guidelines', 'AHA/ACC, ESC, KDIGO, UK Kidney Association and others. Many are free to read. NOMI summarizes and links them, and never republishes them.', 'Summarized + linked'],
+  ['Your EHR (FHIR)', 'Patient context, only when switched on. Read-only and visible in every answer.', 'Opt-in'],
+];
+$('#src-grid').innerHTML = OPEN.map(([n, d, a]) => `<div class="src-card"><b>${esc(n)}</b><p>${esc(d)}</p><div class="tags" style="margin-top:.6rem"><span class="tag ${/Free/.test(a) ? 'open' : 'type'}">${esc(a)}</span></div></div>`).join('');
+
+/* =====================================================================
+   NOMI BUDDY — on demand, context-aware, never pops up uninvited
+   ===================================================================== */
+const buddy = $('#buddy'), fab = $('#fab'), bb = $('#b-body');
+function openBuddy() { buddy.classList.add('open'); fab.setAttribute('aria-expanded', true); fab.style.visibility = 'hidden'; if (!bb.children.length) greet(); setTimeout(() => $('#b-q').focus(), 200); }
+function closeBuddy() { buddy.classList.remove('open'); fab.setAttribute('aria-expanded', false); fab.style.visibility = ''; fab.focus(); }
+fab.addEventListener('click', openBuddy); $('#b-x').addEventListener('click', closeBuddy);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && buddy.classList.contains('open')) closeBuddy();
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); buddy.classList.contains('open') ? closeBuddy() : openBuddy(); }
+});
+function say(html, me) { const d = document.createElement('div'); d.className = 'bm' + (me ? ' me' : ''); d.innerHTML = html; bb.appendChild(d); bb.scrollTop = bb.scrollHeight; return d; }
+async function think(ms = 650) { const d = say('<span class="typing"><i></i><i></i><i></i></span>'); $('#b-orb').classList.add('think'); await new Promise(r => setTimeout(r, ms)); $('#b-orb').classList.remove('think'); d.remove(); }
+function where() {
+  if (st.view === 'ask' && st.cur && st.cur.id !== 'none') return { kind: 'answer', a: st.cur };
+  if (st.view === 'atlas') return { kind: 'topic', t: TOPICS.find(x => x.id === st.topic) };
+  return { kind: 'home' };
+}
+function chips() {
+  const w = where(); let c;
+  if (w.kind === 'answer') c = [['Explain it simpler', 'simpler'], ['What should I monitor?', 'monitor'], ['Patient teach-back script', 'teach'], ['Summarize in one line', 'tldr']];
+  else if (w.kind === 'topic') c = [['30-second summary', 'tldr'], ['Quiz me (3 questions)', 'quiz'], ['What changed recently?', 'changed'], ['Teach-back script', 'teach']];
+  else c = [['What can you do?', 'help'], ['Robert’s top concern today', 'concern'], ['Quiz me on hyperkalemia', 'quizk']];
+  $('#b-chips').innerHTML = c.map(([l, k]) => `<button data-b="${k}">${esc(l)}</button>`).join('');
+}
+function buddyContext() {
+  const w = where();
+  $('#b-sub').textContent = w.kind === 'answer' ? 'Reading: your answer' : w.kind === 'topic' ? `Reading: ${w.t.title}` : 'Your AI buddy';
+  chips();
+  const hint = $('#fab-hint');
+  hint.textContent = w.kind === 'topic' ? `Want the 30-second version?` : w.kind === 'answer' ? 'I can turn this into a teach-back' : '';
+  fab.classList.toggle('nudge', !!hint.textContent && !buddy.classList.contains('open'));
+}
+function greet() {
+  say(`Hi, I'm <b>Nomi</b>. I can summarize what you're reading, quiz you, write teach-back scripts, and point you to sources. I only answer from cited evidence, and I'll tell you when I don't know.`);
+  chips();
+}
+const TEACH = {
+  adhf: ['What does your water pill do, and when do you take it?', 'How and when will you weigh yourself each day?', 'What weight change or symptom means you should call?'],
+  hyperk: ['Which foods or products could raise your potassium?', 'Why shouldn’t you use salt substitutes?', 'What symptoms should you tell us about?'],
+  sglt2: ['What is this new medicine for?', 'What should you do if you can’t eat or drink because you’re sick?', 'What side effects should you watch for?'],
+  loop: ['Why will you need to pee more after your water pill?', 'Why should you get up slowly?', 'When should you call about dizziness?'],
+};
+const QUIZ = {
+  hyperk: [['A patient with K⁺ 6.8 has peaked T waves. What is the first priority?', ['IV calcium to stabilize the heart', 'Oral potassium binder', 'Repeat the blood test'], 0, 'IV calcium protects the myocardium but doesn’t lower potassium. Shifting and removal follow.', 'ukka2020'],
+    ['After insulin with glucose for hyperkalemia, what must you monitor?', ['Blood glucose', 'Temperature', 'Pupil size'], 0, 'Hypoglycemia is the main early risk after insulin, so check glucose per protocol.', 'ukka2020'],
+    ['Why ask about salt substitutes?', ['Many contain potassium chloride', 'They contain caffeine', 'They raise sodium'], 0, 'Potassium-based salt substitutes can push potassium higher.', 'mlp_k']],
+  adhf: [['In DOSE, how did bolus compare with continuous IV furosemide for symptoms?', ['No significant difference', 'Bolus was clearly better', 'Continuous was clearly better'], 0, 'DOSE found no significant difference in symptom relief between the two strategies.', 'dose2011'],
+    ['In acute dyspnea, a BNP below which level makes heart failure unlikely?', ['100 pg/mL', '400 pg/mL', '1,000 pg/mL'], 0, 'In Breathing Not Properly, 100 pg/mL was 90% sensitive for heart failure.', 'maisel2002'],
+    ['When is early follow-up reasonable after an HF hospitalization?', ['Within about 7 days', 'At 3 months', 'Only if symptoms return'], 0, 'AHA/ACC/HFSA 2022: early follow-up, generally within 7 days, is reasonable.', 'aha2022']],
+};
+QUIZ.sglt2 = [['Which trial tested empagliflozin with EF > 40%?', ['EMPEROR-Preserved', 'DAPA-HF', 'RALES'], 0, 'EMPEROR-Preserved enrolled patients with EF > 40%.', 'emppres2021']];
+QUIZ.loop = [QUIZ.adhf[0]];
+function runQuiz(key) {
+  const qs = QUIZ[key] || QUIZ.adhf; let i = 0, score = 0;
+  const ask1 = () => {
+    const [q, opts, right, why, src] = qs[i];
+    const d = say(`<div class="quiz"><b>Q${i + 1} of ${qs.length}.</b> ${esc(q)}${opts.map((o, j) => `<button class="opt" data-j="${j}">${esc(o)}</button>`).join('')}</div>`);
+    $$('.opt', d).forEach(b => b.addEventListener('click', () => {
+      if (d.dataset.done) return; d.dataset.done = 1;
+      const ok = +b.dataset.j === right; if (ok) score++;
+      b.classList.add(ok ? 'right' : 'wrong'); if (!ok) $$('.opt', d)[right].classList.add('right');
+      say(`${ok ? '✓ Correct.' : 'Not quite.'} ${esc(why)}<div class="src">${ic('book')}${esc(REF[src].t)}</div>`);
+      i++; setTimeout(() => i < qs.length ? ask1() : say(`You got <b>${score}/${qs.length}</b>. ${score === qs.length ? 'Excellent.' : 'Want the encyclopedia page to review?'}`), 700);
+    }));
+  };
+  ask1();
+}
+async function act(k, label) {
+  say(esc(label), true); await think();
+  const w = where();
+  const topicId = w.kind === 'topic' ? w.t.id : w.kind === 'answer' ? (w.a.topic || 'adhf') : 'adhf';
+  const topic = TOPICS.find(t => t.id === topicId);
+  switch (k) {
+    case 'help': say(`Here's what I can do:<ul><li>Summarize any answer or page</li><li>Switch it to nurse or patient language</li><li>Write a teach-back script</li><li>Quiz you for CE and competency practice</li><li>Point you to the exact source</li></ul>Press <b>Ctrl/⌘ + J</b> any time.`); break;
+    case 'concern': say(`<b>Potassium 5.1 and rising while on spironolactone + lisinopril</b> (eGFR 42). The 09:00 dose should be reviewed with the prescriber.<div class="src">${ic('user')}From Robert's chart · ${ic('book')}AHA/ACC/HFSA 2022</div>`); say(`Want the full cited answer?`).insertAdjacentHTML('beforeend', ` <button class="btn" style="margin-top:.5rem" data-ask="spiro">Open answer</button>`); break;
+    case 'tldr': if (w.kind === 'answer') say(`${esc(st.ctx && w.a.ctxLead ? w.a.ctxLead : w.a.genLead)}<div class="src">${ic('book')}Same sources as the answer</div>`); else say(`<b>${esc(topic.title)} in 30 seconds:</b><ul>${topic.key.map(x => `<li>${esc(x.replace(/\s*\{\w+\}/g, ''))}</li>`).join('')}</ul><div class="src">${ic('book')}Cited on the page</div>`); break;
+    case 'simpler': { const a = w.a; const tmp = document.createElement('div'); tmp.innerHTML = a.patient.replace(/\{\w+\}/g, ''); say(`In plain words: ${esc(tmp.innerText.trim())}`); break; }
+    case 'monitor': { const a = w.a; const tmp = document.createElement('div'); tmp.innerHTML = a.nurse.replace(/\{\w+\}/g, ''); say(`<b>For the nurse:</b><br>${esc(tmp.innerText.trim()).replace(/\n+/g, '<br>')}`); break; }
+    case 'teach': say(`<b>Teach-back script</b> (ask in your own words, then confirm):<ul>${(TEACH[topicId] || TEACH.adhf).map(x => `<li>"${esc(x)}"</li>`).join('')}</ul>If they can't explain it back, re-teach and ask again.`); break;
+    case 'changed': say(`<b>What changed for ${esc(topic.title)}:</b><ul>${topic.changes.slice(-3).map(([y, c]) => `<li><b>${y}</b>: ${esc(c.replace(/\s*\{\w+\}/g, ''))}</li>`).join('')}</ul>`); break;
+    case 'quiz': runQuiz(topicId); break;
+    case 'quizk': runQuiz('hyperk'); break;
+  }
+}
+$('#b-chips').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) act(b.dataset.b, b.textContent); });
+$('#b-form').addEventListener('submit', async e => {
+  e.preventDefault(); const v = $('#b-q').value.trim(); if (!v) return; $('#b-q').value = '';
+  const lv = v.toLowerCase();
+  if (/quiz/.test(lv)) return act(/potass|hyperk/.test(lv) ? 'quizk' : 'quiz', v);
+  if (/teach/.test(lv)) return act('teach', v);
+  if (/summar|tl;?dr|short/.test(lv)) return act('tldr', v);
+  say(esc(v), true); await think(800);
+  const m = FIND(v);
+  if (m) { say(`${esc(st.ctx && m.ctx && m.ctxLead ? m.ctxLead : m.genLead)}`).insertAdjacentHTML('beforeend', `<div><button class="btn" style="margin-top:.5rem" data-ask="${m.id}">See full cited answer</button></div>`); }
+  else say(`I don't have cited evidence for that in this prototype, so I won't guess. Try the encyclopedia, or ask me for a summary or a quiz on the page you're reading.`);
+});
+buddyContext();
+</script>
+</body>
+</html>

@@ -27,6 +27,10 @@ See [`docs/DESIGN.md`](docs/DESIGN.md) for the design rationale and [`docs/REVIE
 
 Open `care/index.html`. **The call light, reinvented.** Patients tap what they need, and each request goes to the right person (care assistant, nurse, nutrition, housekeeping). Patients see who's coming and when, like a ride-hailing tracker. Nurses get only clinical requests, each with context: pain score, PRN eligibility, fall risk. Notes are drafted for them to sign, and they can chart by voice. Plain-language results, care-plan-grounded answers, and a discharge readiness checklist. See [`docs/CARE.md`](docs/CARE.md).
 
+## NOMI Atlas (cited answers + encyclopedia + AI buddy)
+
+Open `atlas/index.html`. Ask a clinical question and get a cited, **unsponsored** answer. Each reference shows its type and how much is free to read. Turn on patient context for chart-aware answers, and switch between **Clinician / Nurse / Patient** reading levels. Browse a living encyclopedia with guideline classes and "What changed" timelines. **Nomi**, the AI buddy (Ctrl/⌘ + J), summarizes, quizzes, and writes teach-back scripts. See [`docs/ATLAS.md`](docs/ATLAS.md) for the OpenEvidence research breakdown and design decisions.
+
 ## Vision
 
 NOMI aims to be the unifying neural knowledge network for medicine:
