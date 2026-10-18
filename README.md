@@ -8,13 +8,20 @@ NOMI is a concept for an AI-native system that integrates patient data (FHIR), l
 
 Open `index.html` in a browser to view the interactive clinician dashboard prototype.
 
-### Features in this prototype
-- Patient intelligence dashboard with AI insights and confidence
-- Differential diagnosis with evidence strength
-- Key labs and drug interaction alerts
-- AI copilot view
-- Neural knowledge graph explorer
-- Role-aware navigation and design system (deep teal + cyan)
+### What's in v2
+- **Overview**: "Needs attention", leading assessment with evidence strength, for/against, unknowns, and symmetric Accept/Override
+- **Suggested next steps**: each one sourced, decidable in one tap, and undoable
+- **Provenance drawer**: every claim links to chart data (FHIR) or a real published source
+- **Shift handoff**: I-PASS structured, NOMI-drafted, nurse-edited, signed off
+- **Ask NOMI**: staged reasoning, cited answers, feedback
+- **Evidence map**: interactive knowledge graph
+- **Decision log**: full audit trail with export
+- **Family view**: clinician-released plain-language summary
+- **Display settings**: text size, light/dark, density, "Explain medical terms"
+
+Keyboard: `1–6` pages · `/` ask · `?` help · `Esc` close.
+
+See [`docs/DESIGN.md`](docs/DESIGN.md) for the design rationale and [`docs/REVIEWS.md`](docs/REVIEWS.md) for stakeholder reviews.
 
 ## Vision
 

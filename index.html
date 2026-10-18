@@ -1,455 +1,1632 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light" data-text="md" data-density="comfortable" data-role="physician">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NOMI — Neural Open Medical Intelligence</title>
+<title>NOMI Clinical Intelligence</title>
+<meta name="description" content="NOMI — Neural Open Medical Intelligence. Clinician-first, evidence-grounded decision support prototype.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Apply saved display preferences before first paint (no flash).
+  (function () {
+    var d = document.documentElement, get = function (k, f) { try { var v = localStorage.getItem('nomi.' + k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } };
+    var t = get('theme', 'system');
+    var dark = t === 'dark' || (t === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    d.dataset.theme = dark ? 'dark' : 'light';
+    d.dataset.text = get('text', 'md');
+    d.dataset.density = get('density', 'comfortable');
+    if (get('explain', false)) d.classList.add('explain');
+  })();
+</script>
 <style>
-  :root {
-    --teal: #0A4D68;
-    --teal-dark: #061f2a;
-    --cyan: #22d3ee;
-    --cyan-glow: rgba(34, 211, 238, 0.15);
-    --bg: #030712;
-    --surface: #0f172a;
-    --card: #111827;
-    --card-border: #1e2937;
-    --text: #f8fafc;
-    --muted: #94a3b8;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --radius: 12px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Inter', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    background-image: radial-gradient(circle at 20% 0%, rgba(10, 77, 104, 0.25), transparent 40%),
-                      radial-gradient(circle at 80% 100%, rgba(34, 211, 238, 0.08), transparent 40%);
-  }
-  .app {
-    display: grid;
-    grid-template-columns: 220px 1fr 340px;
-    min-height: 100vh;
-  }
-  .sidebar {
-    background: rgba(6, 31, 42, 0.85);
-    backdrop-filter: blur(12px);
-    border-right: 1px solid var(--card-border);
-    padding: 20px 12px;
-    display: flex;
-    flex-direction: column;
-  }
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 12px 24px;
-    font-weight: 700;
-    font-size: 18px;
-  }
-  .logo-mark {
-    width: 28px;
-    height: 28px;
-    background: linear-gradient(135deg, var(--cyan), var(--teal));
-    border-radius: 7px;
-    display: grid;
-    place-items: center;
-    font-size: 14px;
-    font-weight: 700;
-    color: #042f2e;
-  }
-  .nav-item {
-    padding: 9px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    color: var(--muted);
-    font-size: 13.5px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 2px;
-    transition: all 0.12s ease;
-  }
-  .nav-item:hover { background: var(--cyan-glow); color: var(--text); }
-  .nav-item.active { background: var(--cyan-glow); color: var(--cyan); font-weight: 500; }
-  .main {
-    padding: 28px 32px;
-    overflow-y: auto;
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 28px;
-  }
-  .header h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.4px; }
-  .header .meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
-  .live-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--cyan-glow);
-    color: var(--cyan);
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 500;
-  }
-  .live-pill::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    background: var(--cyan);
-    border-radius: 50%;
-    box-shadow: 0 0 8px var(--cyan);
-  }
-  .grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    padding: 18px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .card:hover { border-color: rgba(34, 211, 238, 0.3); box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08); }
-  .card h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: var(--muted);
-    margin-bottom: 14px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 9px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .badge-high { background: rgba(16,185,129,0.15); color: #34d399; }
-  .badge-med { background: rgba(245,158,11,0.15); color: #fbbf24; }
-  .badge-low { background: rgba(239,68,68,0.15); color: #f87171; }
-  .badge-cyan { background: var(--cyan-glow); color: var(--cyan); }
-  .patient-row {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-    margin-bottom: 14px;
-  }
-  .avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #1e2937, #334155);
-    display: grid;
-    place-items: center;
-    font-weight: 600;
-    font-size: 14px;
-  }
-  .vitals {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-top: 12px;
-  }
-  .vital {
-    background: rgba(0,0,0,0.35);
-    padding: 10px;
-    border-radius: 8px;
-    text-align: center;
-  }
-  .vital .val { font-size: 17px; font-weight: 600; }
-  .vital .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-  .diff-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 11px 0;
-    border-bottom: 1px solid var(--card-border);
-    font-size: 13.5px;
-  }
-  .diff-item:last-child { border-bottom: none; }
-  .strength {
-    height: 5px;
-    background: #1e2937;
-    border-radius: 3px;
-    width: 70px;
-    overflow: hidden;
-  }
-  .strength-bar { height: 100%; background: linear-gradient(90deg, var(--teal), var(--cyan)); border-radius: 3px; }
-  .right-panel {
-    background: rgba(17, 24, 39, 0.9);
-    border-left: 1px solid var(--card-border);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .msg {
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .msg.ai { background: var(--cyan-glow); border: 1px solid rgba(34, 211, 238, 0.25); }
-  .msg.user { background: #1e2937; margin-left: auto; max-width: 92%; }
-  .source {
-    background: rgba(0,0,0,0.4);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 12px;
-    border-left: 3px solid var(--cyan);
-  }
-  .source strong { color: var(--cyan); display: block; margin-bottom: 2px; }
-  .view { display: none; }
-  .view.active { display: block; }
-  .graph-box {
-    height: 220px;
-    background: radial-gradient(circle at center, rgba(34,211,238,0.08), transparent 70%);
-    border: 1px dashed rgba(34,211,238,0.3);
-    border-radius: var(--radius);
-    display: grid;
-    place-items: center;
-    color: var(--muted);
-    font-size: 13px;
-    position: relative;
-    overflow: hidden;
-  }
-  .node {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    background: var(--cyan);
-    border-radius: 50%;
-    box-shadow: 0 0 14px var(--cyan);
-  }
-  .input-bar {
-    margin-top: auto;
-    display: flex;
-    gap: 8px;
-  }
-  .input-bar input {
-    flex: 1;
-    background: #0b1220;
-    border: 1px solid var(--card-border);
-    color: var(--text);
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-size: 13px;
-    outline: none;
-  }
-  .input-bar input:focus { border-color: var(--cyan); }
-  .btn {
-    background: var(--cyan);
-    color: #042f2e;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  .btn:hover { filter: brightness(1.08); }
-  .disclaimer {
-    margin-top: 24px;
-    font-size: 11px;
-    color: var(--muted);
-    text-align: center;
-    opacity: 0.7;
-  }
+/* ============================================================
+   1. TOKENS
+   ============================================================ */
+:root {
+  --brand: #0A4D68;
+  --cyan: #22d3ee;
+
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --surface-2: #eef3f5;
+  --surface-3: #e3ebee;
+  --line: #d8e1e5;
+  --line-strong: #b5c5cc;
+  --text: #0b1b22;
+  --text-2: #3b525c;
+  --text-3: #566e78;
+
+  --primary: #0A4D68;
+  --on-primary: #ffffff;
+  --primary-soft: #e3f1f6;
+  --accent-ink: #0b6e86;          /* cyan family, AA on white */
+  --accent-line: #22d3ee;
+
+  --crit: #b42318;  --crit-bg: #fdf1ef; --crit-line: #f3b8b0;
+  --warn: #8a5300;  --warn-bg: #fff5e1; --warn-line: #f1cf8f;
+  --ok:   #0b6b3f;  --ok-bg:   #e9f7ef; --ok-line:   #a8dcbe;
+  --info-bg: #e8f4f8; --info-line: #b6dbe8;
+
+  --focus: #0A4D68;
+  --focus-halo: rgba(34, 211, 238, .55);
+  --shadow: 0 1px 2px rgba(10, 30, 40, .05), 0 4px 16px rgba(10, 30, 40, .05);
+  --shadow-lg: 0 12px 40px rgba(6, 25, 35, .18);
+  --scrim: rgba(6, 20, 28, .38);
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --pad: 1.25rem;
+  --gap: 1rem;
+  --row: 2.75rem;            /* 44px touch target */
+  --rail: 15rem;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --t: 180ms;
+  font-size: 16px;
+}
+[data-theme="dark"] {
+  --bg: #061217;
+  --surface: #0b1c23;
+  --surface-2: #10262f;
+  --surface-3: #16323d;
+  --line: #1b3540;
+  --line-strong: #2b4c59;
+  --text: #e6f2f5;
+  --text-2: #a8c0c8;
+  --text-3: #8ba7b1;
+
+  --primary: #22d3ee;
+  --on-primary: #03222c;
+  --primary-soft: rgba(34, 211, 238, .12);
+  --accent-ink: #67e8f9;
+
+  --crit: #ff9b8f;  --crit-bg: rgba(255, 110, 95, .11); --crit-line: rgba(255, 130, 115, .38);
+  --warn: #fcc85b;  --warn-bg: rgba(252, 190, 70, .10); --warn-line: rgba(252, 200, 90, .35);
+  --ok:   #6ee3a1;  --ok-bg:   rgba(80, 220, 140, .10); --ok-line:   rgba(110, 227, 161, .35);
+  --info-bg: rgba(34, 211, 238, .08); --info-line: rgba(34, 211, 238, .3);
+
+  --focus: #67e8f9;
+  --focus-halo: rgba(34, 211, 238, .35);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .02) inset, 0 6px 24px rgba(0, 0, 0, .25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, .5);
+  --scrim: rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+[data-text="sm"] { font-size: 15px; }
+[data-text="lg"] { font-size: 18px; }
+[data-text="xl"] { font-size: 20px; }
+[data-density="compact"] { --pad: .875rem; --gap: .625rem; --row: 2.25rem; }
+
+/* ============================================================
+   2. BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, p { margin: 0; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.num, .mono, table td { font-variant-numeric: tabular-nums; }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .86em; }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+.sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: 0 0 0 6px var(--focus-halo); border-radius: 6px; }
+.skip { position: absolute; left: 1rem; top: -4rem; z-index: 100; background: var(--primary); color: var(--on-primary); padding: .75rem 1rem; border-radius: 8px; font-weight: 600; text-decoration: none; }
+.skip:focus { top: 1rem; }
+.ic { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; } }
+
+/* Plain-language mode: medical terms show a short explanation inline */
+.term { text-decoration: underline dotted var(--text-3); text-underline-offset: 3px; }
+.explain .term[data-plain]::after { content: " (" attr(data-plain) ")"; color: var(--text-2); font-weight: 400; text-decoration: none; display: inline; }
+
+/* ============================================================
+   3. LAYOUT
+   ============================================================ */
+.app { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); min-height: 100vh; }
+.rail {
+  position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: .25rem;
+  padding: 1.25rem .75rem; background: var(--surface); border-right: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: .65rem; padding: .25rem .6rem 1.25rem; }
+.brand-mark {
+  width: 2rem; height: 2rem; border-radius: 9px; display: grid; place-items: center;
+  background: linear-gradient(140deg, #22d3ee 0%, #0A4D68 78%); color: #fff; font-weight: 700; font-size: .95rem;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.15) inset, 0 4px 14px rgba(10,77,104,.35);
+}
+.brand-name { font-weight: 700; letter-spacing: .02em; }
+.brand-sub { display: block; font-size: .72rem; color: var(--text-3); font-weight: 500; letter-spacing: 0; }
+.nav-group { font-size: .75rem; font-weight: 600; color: var(--text-3); padding: .9rem .75rem .35rem; }
+.nav-btn {
+  display: flex; align-items: center; gap: .7rem; width: 100%; min-height: var(--row);
+  padding: 0 .75rem; border: 0; border-radius: 10px; background: transparent; color: var(--text-2);
+  font-weight: 500; text-align: left; transition: background var(--t), color var(--t);
+}
+.nav-btn:hover { background: var(--surface-2); color: var(--text); }
+.nav-btn[aria-current="page"] { background: var(--primary-soft); color: var(--text); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent-line); }
+.nav-btn[aria-current="page"] .ic { color: var(--accent-ink); }
+.nav-btn kbd { margin-left: auto; }
+.rail-foot { margin-top: auto; border-top: 1px solid var(--line); padding: .9rem .6rem 0; display: flex; gap: .65rem; align-items: center; font-size: .86rem; }
+.avatar { width: 2.25rem; height: 2.25rem; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); color: var(--text); font-weight: 600; font-size: .8rem; flex: none; }
+.status-dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; background: var(--ok); margin-right: .3rem; vertical-align: middle; }
+kbd { font-family: "IBM Plex Mono", monospace; font-size: .72rem; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px; padding: 0 .35rem; color: var(--text-3); background: var(--surface); }
+
+.workspace { min-width: 0; display: flex; flex-direction: column; }
+.topwrap { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
+.topbar { display: flex; align-items: center; gap: .75rem; padding: .6rem 1.5rem; flex-wrap: wrap; }
+.topbar .spacer { flex: 1; }
+
+/* Segmented control */
+.seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; }
+.seg button { border: 0; background: transparent; min-height: calc(var(--row) - 8px); padding: 0 .85rem; border-radius: 8px; font-weight: 500; font-size: .9rem; color: var(--text-2); display: inline-flex; align-items: center; gap: .4rem; transition: background var(--t), color var(--t); }
+.seg button[aria-pressed="true"], .seg button[aria-checked="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+
+.sync { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; color: var(--text-2); }
+.sync .pulse { width: .5rem; height: .5rem; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 0 rgba(34,211,238,.6); animation: pulse 2.4s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34,211,238,.55); } 70% { box-shadow: 0 0 0 8px rgba(34,211,238,0); } 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0); } }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Patient banner (after NHS CUI patient banner pattern) */
+.banner { display: flex; align-items: center; gap: 1.25rem; padding: .75rem 1.5rem .9rem; flex-wrap: wrap; }
+.banner-id { display: flex; align-items: center; gap: .85rem; }
+.banner-id .avatar { width: 2.75rem; height: 2.75rem; border-radius: 12px; background: linear-gradient(140deg, var(--surface-3), var(--surface-2)); font-size: .95rem; }
+.pt-name { font-size: 1.2rem; font-weight: 650; letter-spacing: -.01em; }
+.pt-meta { font-size: .88rem; color: var(--text-2); }
+.banner-facts { display: flex; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
+.fact { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; padding: .3rem .65rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.fact b { font-weight: 600; }
+.fact.alert { border-color: var(--crit-line); background: var(--crit-bg); color: var(--crit); }
+.fact.alert b { color: inherit; }
+
+main { padding: 1.5rem; max-width: 92rem; width: 100%; }
+.view { display: none; animation: rise .28s var(--ease); }
+.view.active { display: block; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.view-head h1 { font-size: 1.6rem; font-weight: 650; letter-spacing: -.02em; outline: none; }
+.view-head p { color: var(--text-2); margin-top: .2rem; max-width: 46rem; }
+
+/* ============================================================
+   4. COMPONENTS
+   ============================================================ */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--pad); box-shadow: var(--shadow); }
+.card + .card, .stack > * + * { margin-top: var(--gap); }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .85rem; flex-wrap: wrap; }
+.card-head h2 { font-size: 1.02rem; font-weight: 650; letter-spacing: -.005em; display: flex; align-items: center; gap: .5rem; }
+.card-head h2 .ic { color: var(--accent-ink); }
+.eyebrow { font-size: .78rem; font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: var(--row); padding: 0 1rem; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font-weight: 600; font-size: .92rem; transition: background var(--t), border-color var(--t), transform 80ms; white-space: nowrap; }
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--text-2); }
+.btn.ghost:hover { background: var(--surface-2); color: var(--text); }
+.btn.sm { min-height: calc(var(--row) - 8px); padding: 0 .7rem; font-size: .85rem; border-radius: 8px; }
+.icon-btn { width: var(--row); padding: 0; }
+
+/* Decision pair: Accept and Override are deliberately symmetric */
+.decide { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.decide .btn { width: 100%; }
+.decide .btn.accept:hover { border-color: var(--ok-line); background: var(--ok-bg); color: var(--ok); }
+.decide .btn.override:hover { border-color: var(--warn-line); background: var(--warn-bg); color: var(--warn); }
+
+/* Citation chips — two visual kinds: chart data (dot) vs literature (book) */
+.cite { display: inline-flex; align-items: center; gap: .3rem; vertical-align: baseline; border: 1px solid var(--info-line); background: var(--info-bg); color: var(--accent-ink); font-size: .78rem; font-weight: 600; line-height: 1; padding: .3rem .5rem; border-radius: 6px; margin: 0 .1rem; transition: background var(--t), border-color var(--t); }
+.cite:hover { border-color: var(--accent-line); }
+.cite .ic { width: .95em; height: .95em; }
+.cite.data { background: var(--surface-2); border-color: var(--line); color: var(--text-2); }
+.cite.data::before { content: ""; width: .45rem; height: .45rem; border-radius: 50%; background: var(--text-3); }
+.cites { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+
+/* Severity callouts (never colour-only: icon + word + colour) */
+.callout { display: flex; gap: .75rem; padding: .85rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface-2); }
+.callout .ic { margin-top: .15rem; }
+.callout.crit { background: var(--crit-bg); border-color: var(--crit-line); }
+.callout.crit > .ic { color: var(--crit); }
+.callout.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.callout.warn > .ic { color: var(--warn); }
+.callout.info { background: var(--info-bg); border-color: var(--info-line); }
+.callout.info > .ic { color: var(--accent-ink); }
+.callout.ok { background: var(--ok-bg); border-color: var(--ok-line); }
+.callout.ok > .ic { color: var(--ok); }
+.sev { display: inline-flex; align-items: center; gap: .3rem; font-size: .75rem; font-weight: 700; letter-spacing: .02em; padding: .15rem .5rem; border-radius: 999px; }
+.sev.crit { color: var(--crit); background: var(--crit-bg); border: 1px solid var(--crit-line); }
+.sev.warn { color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-line); }
+.sev.ok { color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-line); }
+.sev.info { color: var(--accent-ink); background: var(--info-bg); border: 1px solid var(--info-line); }
+.sev.neutral { color: var(--text-2); background: var(--surface-2); border: 1px solid var(--line); }
+
+/* Evidence-strength meter: 4 labelled steps, never a raw % */
+.strength { display: inline-flex; align-items: center; gap: .55rem; }
+.strength .bars { display: inline-grid; grid-template-columns: repeat(4, 1fr); gap: 3px; width: 4.5rem; }
+.strength .bars i { height: .45rem; border-radius: 2px; background: var(--surface-3); }
+.strength[data-level="1"] .bars i:nth-child(-n+1),
+.strength[data-level="2"] .bars i:nth-child(-n+2),
+.strength[data-level="3"] .bars i:nth-child(-n+3),
+.strength[data-level="4"] .bars i:nth-child(-n+4) { background: linear-gradient(90deg, #0A4D68, #22d3ee); }
+[data-theme="dark"] .strength .bars i { background: #1f3d49; }
+.strength .lbl { font-size: .82rem; font-weight: 650; }
+
+/* Attention list */
+.attn { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.attn li { display: grid; grid-template-columns: auto 1fr auto; gap: .8rem; align-items: start; padding: .85rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); }
+.attn li.warn { border-color: var(--warn-line); background: linear-gradient(90deg, var(--warn-bg), transparent 70%); }
+.attn li.warn > .ic { color: var(--warn); }
+.attn li.info > .ic { color: var(--accent-ink); }
+.attn .t { font-weight: 600; }
+.attn .d { color: var(--text-2); font-size: .92rem; }
+
+/* Assessment */
+.assess-title { font-size: 1.35rem; font-weight: 650; letter-spacing: -.015em; line-height: 1.3; }
+.assess-body { font-size: 1rem; color: var(--text); margin-top: .5rem; max-width: 52rem; }
+.assess-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin-top: 1rem; }
+.why h3 { font-size: .86rem; font-weight: 650; margin-bottom: .4rem; display: flex; align-items: center; gap: .4rem; }
+.why ul { margin: 0; padding-left: 1.1rem; color: var(--text); font-size: .93rem; }
+.why li { margin: .2rem 0; }
+.why.for h3 { color: var(--ok); }
+.why.against h3 { color: var(--warn); }
+.unknowns { margin-top: 1rem; }
+.provenance { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin-top: 1rem; padding-top: .85rem; border-top: 1px dashed var(--line); font-size: .82rem; color: var(--text-3); align-items: center; }
+.provenance .ic { width: 1em; height: 1em; }
+
+/* Recommendations */
+.rec { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .95rem 1rem; display: grid; grid-template-columns: minmax(0, 1fr) 15rem; gap: 1rem; align-items: start; transition: border-color var(--t), background var(--t); }
+.rec + .rec { margin-top: .6rem; }
+.rec.caution { border-left: 4px solid var(--warn); }
+.rec .rt { font-weight: 650; }
+.rec .rd { color: var(--text-2); font-size: .92rem; margin-top: .15rem; }
+.rec .meta { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; flex-wrap: wrap; }
+.rec[data-state="accepted"] { background: var(--ok-bg); border-color: var(--ok-line); }
+.rec[data-state="overridden"] { background: var(--surface-2); }
+.rec[data-state="overridden"] .rt { text-decoration: line-through; text-decoration-color: var(--text-3); color: var(--text-2); }
+.rec-done { display: grid; gap: .4rem; }
+.rec-done .state { display: flex; align-items: center; gap: .45rem; font-weight: 650; font-size: .9rem; }
+.rec-done .state small { font-weight: 500; color: var(--text-3); }
+.chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; font-weight: 500; min-height: 2rem; }
+.chip:hover { background: var(--surface-2); }
+.chip[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+
+/* Disclosure rows (differential) */
+.ddx { border-top: 1px solid var(--line); }
+.ddx:first-of-type { border-top: 0; }
+.ddx > button { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) auto 1.25rem; gap: .75rem; align-items: center; width: 100%; padding: .8rem .25rem; cursor: pointer; border-radius: 8px; }
+.ddx > button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.ddx > button:hover .dn { color: var(--accent-ink); }
+.ddx .rank { width: 1.75rem; height: 1.75rem; border-radius: 8px; background: var(--surface-2); display: grid; place-items: center; font-weight: 650; font-size: .85rem; color: var(--text-2); }
+.ddx .dn { font-weight: 600; }
+.ddx .ds { font-size: .86rem; color: var(--text-2); }
+.ddx .chev { transition: transform var(--t); color: var(--text-3); }
+.ddx[data-open="true"] .chev { transform: rotate(180deg); }
+.ddx .panel { display: none; padding: 0 .25rem 1rem 2.75rem; }
+.ddx[data-open="true"] .panel { display: block; animation: rise .2s var(--ease); }
+
+/* Vitals tiles */
+.vitals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.vital { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .7rem .8rem .55rem; background: var(--surface); }
+.vital .k { font-size: .78rem; color: var(--text-2); font-weight: 500; display: flex; justify-content: space-between; gap: .3rem; }
+.vital .v { font-size: 1.35rem; font-weight: 650; letter-spacing: -.02em; margin-top: .1rem; }
+.vital .u { font-size: .75rem; color: var(--text-3); font-weight: 500; }
+.vital.watch { border-color: var(--warn-line); }
+.spark { display: block; width: 100%; height: 1.6rem; margin-top: .25rem; }
+.spark path { fill: none; stroke: var(--accent-ink); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.spark circle { fill: var(--accent-ink); }
+.vital.watch .spark path { stroke: var(--warn); }
+.vital.watch .spark circle { fill: var(--warn); }
+
+/* Tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.tbl th { text-align: left; font-size: .78rem; color: var(--text-3); font-weight: 600; padding: .4rem .5rem; border-bottom: 1px solid var(--line); }
+.tbl td { padding: .55rem .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl .val { font-weight: 650; white-space: nowrap; }
+.tbl .hi { color: var(--crit); }
+.tbl .lo { color: var(--warn); }
+.flag { font-size: .72rem; font-weight: 700; margin-left: .3rem; }
+.row-btn { all: unset; cursor: pointer; font-weight: 600; border-radius: 6px; }
+.row-btn:hover { color: var(--accent-ink); text-decoration: underline; }
+.row-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.tbl tr.clickable { cursor: pointer; transition: background var(--t); }
+.tbl tr.clickable:hover td { background: var(--surface-2); }
+.trend-mini { width: 3.25rem; height: 1.1rem; }
+.tbl .unit { display: block; font-weight: 400; font-size: .75rem; color: var(--text-3); }
+
+/* Two-column overview */
+.ov-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(19rem, 1fr); gap: var(--gap); align-items: start; }
+.welcome { display: flex; gap: 1rem; align-items: center; padding: .9rem 1.1rem; border-radius: var(--radius); margin-bottom: var(--gap); background: linear-gradient(110deg, var(--primary-soft), transparent 75%); border: 1px solid var(--info-line); }
+.welcome p { flex: 1; }
+.welcome .ic { color: var(--accent-ink); width: 1.4rem; height: 1.4rem; }
+
+/* Drawer (evidence / provenance) */
+.scrim { position: fixed; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity var(--t); z-index: 60; }
+.scrim.show { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(30rem, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-lg); transform: translateX(102%); transition: transform 260ms var(--ease); z-index: 70; display: flex; flex-direction: column; visibility: hidden; }
+.drawer.open { transform: none; visibility: visible; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); }
+.drawer-body { padding: 1.25rem; overflow-y: auto; display: grid; gap: 1rem; align-content: start; }
+.src-type { display: inline-flex; gap: .4rem; align-items: center; }
+.src-title { font-size: 1.12rem; font-weight: 650; line-height: 1.35; }
+.kv { display: grid; grid-template-columns: 8rem 1fr; gap: .45rem .75rem; font-size: .9rem; }
+.kv dt { color: var(--text-3); }
+.kv dd { margin: 0; }
+.claim { border-left: 3px solid var(--accent-line); padding: .6rem .85rem; background: var(--surface-2); border-radius: 0 8px 8px 0; font-size: .95rem; }
+
+/* Ask NOMI */
+.ask-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--gap); align-items: start; }
+.thread { display: grid; gap: 1rem; min-height: 16rem; }
+.bubble-q { justify-self: end; background: var(--surface-3); padding: .75rem 1rem; border-radius: 14px 14px 4px 14px; max-width: 80%; }
+.answer { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; background: var(--surface); }
+.answer .who { display: flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 650; color: var(--accent-ink); margin-bottom: .5rem; }
+.answer p + p, .answer p + ul, .answer ul + p { margin-top: .6rem; }
+.answer ul { margin: .4rem 0 0; padding-left: 1.15rem; }
+.answer .fb { display: flex; gap: .4rem; margin-top: .9rem; padding-top: .75rem; border-top: 1px dashed var(--line); align-items: center; flex-wrap: wrap; }
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: .45rem; }
+.steps li { display: flex; align-items: center; gap: .55rem; color: var(--text-3); font-size: .92rem; }
+.steps li.doing { color: var(--text); }
+.steps li.done { color: var(--text-2); }
+.steps li .ic { width: 1rem; height: 1rem; }
+.steps li.done .ic { color: var(--ok); }
+.skel { height: .8rem; border-radius: 6px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.composer { display: flex; gap: .5rem; margin-top: 1rem; position: sticky; bottom: 1rem; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px; padding: .4rem; box-shadow: var(--shadow); }
+.composer input { flex: 1; border: 0; background: transparent; padding: 0 .75rem; min-height: var(--row); outline: none; font-size: 1rem; }
+.composer:focus-within { border-color: var(--focus); box-shadow: 0 0 0 4px var(--focus-halo); }
+.suggest { display: grid; gap: .5rem; }
+.suggest button { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: .7rem .85rem; font-weight: 500; font-size: .92rem; min-height: var(--row); transition: border-color var(--t), background var(--t); }
+.suggest button:hover { border-color: var(--accent-line); background: var(--primary-soft); }
+
+/* Evidence map */
+.map-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--gap); align-items: start; }
+.graph { width: 100%; height: auto; display: block; border-radius: var(--radius-sm); background: radial-gradient(ellipse at 50% 50%, var(--primary-soft), transparent 70%); }
+.graph .edge { stroke: var(--line-strong); stroke-width: 1.5; transition: stroke var(--t), opacity var(--t); }
+.graph .edge.hl { stroke: var(--accent-ink); stroke-width: 2.5; }
+.graph .node { cursor: pointer; transition: opacity var(--t); outline: none; }
+.graph .node circle, .graph .node rect { stroke-width: 2; transition: stroke-width var(--t); }
+.graph .node text { font-size: 13px; font-weight: 600; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.graph .node:focus-visible circle, .graph .node:focus-visible rect, .graph .node.sel circle, .graph .node.sel rect { stroke-width: 4; }
+.graph .node:focus-visible circle, .graph .node:focus-visible rect { stroke: var(--focus); }
+.graph.dim .node:not(.near) { opacity: .25; }
+.graph.dim .edge:not(.hl) { opacity: .15; }
+.legend { display: flex; flex-wrap: wrap; gap: .4rem .9rem; font-size: .82rem; color: var(--text-2); margin-top: .75rem; }
+.legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.lg { width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid; display: inline-block; }
+.lg.sq { border-radius: 3px; }
+.conn { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .4rem; }
+.conn li { font-size: .9rem; padding: .5rem .65rem; border: 1px solid var(--line); border-radius: 8px; }
+.conn li b { font-weight: 600; }
+
+/* Handoff (I-PASS) */
+.ipass { display: grid; gap: var(--gap); }
+.ip-row { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: 1rem; }
+.ip-letter { width: 2.75rem; height: 2.75rem; border-radius: 12px; display: grid; place-items: center; font-weight: 700; font-size: 1.2rem; background: var(--primary); color: var(--on-primary); }
+.ip-row h3 { font-size: 1rem; font-weight: 650; }
+.ip-row .sub { font-size: .85rem; color: var(--text-3); }
+.editable[contenteditable="true"] { outline: 2px dashed var(--accent-line); outline-offset: 4px; border-radius: 4px; background: var(--primary-soft); }
+.tasks { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .4rem; }
+.tasks label { display: grid; grid-template-columns: 1.4rem 4.2rem 1fr; gap: .6rem; align-items: start; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; min-height: var(--row); }
+.tasks input { width: 1.25rem; height: 1.25rem; margin: .1rem 0 0; accent-color: var(--primary); }
+.tasks input:checked ~ span { text-decoration: line-through; color: var(--text-3); }
+.tasks .when { font-weight: 600; font-size: .85rem; color: var(--text-2); padding-top: .1rem; }
+.ifthen { display: grid; gap: .4rem; margin-top: .5rem; }
+.ifthen div { display: grid; grid-template-columns: auto 1fr; gap: .6rem; font-size: .93rem; padding: .55rem .75rem; border-radius: 10px; background: var(--surface-2); }
+.ifthen b { color: var(--warn); }
+.sev-scale { display: inline-flex; gap: .35rem; margin-top: .4rem; }
+
+/* Family view */
+.family { max-width: 46rem; margin: 0 auto; font-size: 1.12rem; }
+.family h1 { font-size: 1.9rem; }
+.family .card h2 { font-size: 1.2rem; }
+.family p, .family li { line-height: 1.65; }
+.family ul { padding-left: 1.2rem; margin: .5rem 0 0; }
+.family .q { display: grid; gap: .5rem; margin-top: .5rem; }
+.family .q div { padding: .8rem 1rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.release { display: flex; align-items: center; gap: .6rem; font-size: .95rem; }
+
+/* Patients + log */
+.sev-pill { display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; font-size: .85rem; }
+.sev-pill::before { content: ""; width: .6rem; height: .6rem; border-radius: 50%; }
+.sev-pill.stable::before { background: var(--ok); }
+.sev-pill.watcher::before { background: var(--warn); border-radius: 2px; transform: rotate(45deg); }
+.sev-pill.unstable::before { background: var(--crit); border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-2); }
+.empty .ic { width: 2rem; height: 2rem; color: var(--text-3); margin-bottom: .5rem; }
+.log-actor { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; }
+.log-actor .avatar { width: 1.6rem; height: 1.6rem; font-size: .65rem; }
+.log-actor .avatar.ai { background: linear-gradient(140deg, #22d3ee, #0A4D68); color: #fff; }
+
+/* Popover */
+.pop { position: absolute; top: calc(100% + .5rem); right: 0; width: 20rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 1rem; display: none; z-index: 50; }
+.pop.open { display: grid; gap: .9rem; animation: rise .16s var(--ease); }
+.pop label.row, .pop .row { display: grid; gap: .35rem; font-size: .85rem; font-weight: 600; color: var(--text-2); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-weight: 600; font-size: .9rem; }
+.switch input { appearance: none; width: 2.6rem; height: 1.5rem; border-radius: 999px; background: var(--surface-3); position: relative; cursor: pointer; transition: background var(--t); border: 1px solid var(--line-strong); flex: none; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform var(--t); }
+.switch input:checked { background: var(--primary); border-color: var(--primary); }
+.switch input:checked::after { transform: translateX(1.1rem); }
+
+/* Toasts */
+.toasts { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); display: grid; gap: .5rem; z-index: 90; width: min(34rem, calc(100vw - 2rem)); }
+.toast { display: flex; align-items: center; gap: .75rem; padding: .65rem .65rem .65rem 1rem; border-radius: 12px; background: #0b1c23; color: #e6f2f5; box-shadow: var(--shadow-lg); animation: rise .2s var(--ease); font-size: .93rem; }
+[data-theme="dark"] .toast { background: #e6f2f5; color: #0b1b22; }
+.toast .ic { color: var(--cyan); }
+[data-theme="dark"] .toast .ic { color: #0b6e86; }
+.toast p { flex: 1; }
+.toast button { background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: .35rem .7rem; font-weight: 600; font-size: .85rem; min-height: 2.25rem; }
+
+dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); padding: 0; width: min(36rem, calc(100vw - 2rem)); box-shadow: var(--shadow-lg); }
+dialog::backdrop { background: var(--scrim); }
+.dlg-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); }
+.dlg-body { padding: 1.25rem; display: grid; gap: 1rem; }
+.howto { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
+.howto li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: .7rem; align-items: start; }
+.howto li::before { content: counter(s); width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--primary-soft); color: var(--accent-ink); font-weight: 700; }
+
+.disclaimer { margin: 2rem auto 0; font-size: .82rem; color: var(--text-3); text-align: center; max-width: 44rem; }
+
+/* Role visibility */
+.family-only { display: none !important; }
+[data-role="family"] .family-only { display: revert !important; }
+[data-role="family"] .nav-btn.family-only { display: flex !important; }
+[data-role="family"] .clin-only { display: none !important; }
+
+/* ============================================================
+   5. RESPONSIVE + PRINT
+   ============================================================ */
+@media (max-width: 1180px) {
+  .ov-grid, .ask-wrap, .map-wrap { grid-template-columns: minmax(0, 1fr); }
+  .rec { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .rail { position: sticky; top: 0; z-index: 40; height: auto; flex-direction: row; align-items: center; overflow-x: auto; padding: .5rem; gap: .25rem; border-right: 0; border-bottom: 1px solid var(--line); }
+  .brand { padding: 0 .5rem 0 .25rem; }
+  .brand-sub, .nav-group, .rail-foot, .nav-btn kbd { display: none; }
+  .nav-btn { width: auto; white-space: nowrap; }
+  .nav-btn[aria-current="page"] { box-shadow: inset 0 -3px 0 var(--accent-line); }
+  .topwrap { position: static; }
+  .topbar, .banner, main { padding-left: 1rem; padding-right: 1rem; }
+  .banner-facts { margin-left: 0; }
+  .assess-grid, .vitals { grid-template-columns: 1fr 1fr; }
+  .tbl .hide-sm { display: none; }
+}
+@media (max-width: 520px) {
+  .assess-grid { grid-template-columns: 1fr; }
+  .decide { grid-template-columns: 1fr 1fr; }
+  .tasks label { grid-template-columns: 1.4rem 1fr; }
+  .tasks .when { grid-column: 2; padding: 0; }
+  .kv { grid-template-columns: 1fr; gap: .1rem; }
+  .kv dd { margin-bottom: .5rem; }
+}
+@media print {
+  .rail, .topbar, .composer, .toasts, .no-print, .btn { display: none !important; }
+  .app { display: block; }
+  .card { box-shadow: none; break-inside: avoid; }
+  .view { display: none !important; }
+  .view.active { display: block !important; }
+}
 </style>
 </head>
 <body>
+<!-- Icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-net" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 10.6l-6.1 1.9L12 18.3l-1.9-5.8L4 10.6l6.1-1.8Z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-pill" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-question" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+</svg>
+
+<a class="skip" href="#main">Skip to main content</a>
+
 <div class="app">
-  <aside class="sidebar">
-    <div class="logo">
-      <div class="logo-mark">N</div>
-      NOMI
+  <!-- ======================= NAV RAIL ======================= -->
+  <nav class="rail" aria-label="Main">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">N</div>
+      <div><span class="brand-name">NOMI</span><span class="brand-sub">Clinical intelligence</span></div>
     </div>
-    <div class="nav-item active" data-view="dashboard">Dashboard</div>
-    <div class="nav-item" data-view="copilot">AI Copilot</div>
-    <div class="nav-item" data-view="graph">Knowledge Graph</div>
-    <div class="nav-item" data-view="patients">Patients</div>
-    <div class="nav-item" data-view="monitoring">Monitoring</div>
-    <div class="nav-item" data-view="messages">Messages</div>
-    <div style="margin-top:auto; padding:12px; font-size:12px; color:var(--muted);">
-      Dr. Alex Morgan<br>
-      <span style="color:var(--success);">● Online</span>
-    </div>
-  </aside>
 
-  <main class="main">
-    <div class="header">
-      <div>
-        <h1 id="page-title">Patient Intelligence</h1>
-        <div class="meta">Robert Ellis · 68 y / M · MRN 88472-19 · Admitted 2 days ago</div>
+    <div class="nav-group clin-only">This patient</div>
+    <button class="nav-btn clin-only" data-view="overview"><svg class="ic"><use href="#i-grid"/></svg>Overview<kbd>1</kbd></button>
+    <button class="nav-btn clin-only" data-view="handoff"><svg class="ic"><use href="#i-clip"/></svg>Shift handoff<kbd>2</kbd></button>
+    <button class="nav-btn clin-only" data-view="ask"><svg class="ic"><use href="#i-msg"/></svg>Ask NOMI<kbd>3</kbd></button>
+    <button class="nav-btn clin-only" data-view="map"><svg class="ic"><use href="#i-net"/></svg>Evidence map<kbd>4</kbd></button>
+    <button class="nav-btn clin-only" data-view="log"><svg class="ic"><use href="#i-hist"/></svg>Decision log<kbd>5</kbd></button>
+    <div class="nav-group clin-only">Unit</div>
+    <button class="nav-btn clin-only" data-view="patients"><svg class="ic"><use href="#i-users"/></svg>My patients<kbd>6</kbd></button>
+    <button class="nav-btn family-only" data-view="family"><svg class="ic"><use href="#i-heart"/></svg>Robert's care today</button>
+
+    <div class="rail-foot">
+      <div class="avatar" id="user-initials" aria-hidden="true">AM</div>
+      <div><div id="user-name" style="font-weight:600">Dr. Alex Morgan</div><div class="faint" id="user-role"><span class="status-dot"></span>Hospitalist · On shift</div></div>
+    </div>
+  </nav>
+
+  <!-- ======================= WORKSPACE ======================= -->
+  <div class="workspace">
+    <div class="topwrap">
+      <div class="topbar">
+        <div class="seg" role="radiogroup" aria-label="View as">
+          <button role="radio" aria-checked="true" data-role="physician">Physician</button>
+          <button role="radio" aria-checked="false" data-role="nurse">Nurse</button>
+          <button role="radio" aria-checked="false" data-role="family">Family</button>
+        </div>
+        <div class="spacer"></div>
+        <span class="sync clin-only" id="sync" aria-live="polite"><span class="pulse" aria-hidden="true"></span><span id="sync-text">Chart synced 2 min ago</span></span>
+        <button class="btn ghost sm clin-only" id="sync-btn" aria-label="Refresh chart data"><svg class="ic" id="sync-ic"><use href="#i-refresh"/></svg>Refresh</button>
+        <div style="position:relative">
+          <button class="btn sm" id="display-btn" aria-expanded="false" aria-controls="display-pop"><svg class="ic"><use href="#i-sliders"/></svg>Display</button>
+          <div class="pop" id="display-pop" role="dialog" aria-label="Display settings">
+            <div class="row">Text size
+              <div class="seg" role="radiogroup" aria-label="Text size" id="pref-text">
+                <button role="radio" data-v="sm" aria-label="Small text" style="font-size:.8rem">A</button>
+                <button role="radio" data-v="md" aria-label="Default text">A</button>
+                <button role="radio" data-v="lg" aria-label="Large text" style="font-size:1.1rem">A</button>
+                <button role="radio" data-v="xl" aria-label="Extra large text" style="font-size:1.25rem">A</button>
+              </div>
+            </div>
+            <div class="row">Theme
+              <div class="seg" role="radiogroup" aria-label="Theme" id="pref-theme">
+                <button role="radio" data-v="light"><svg class="ic"><use href="#i-sun"/></svg>Light</button>
+                <button role="radio" data-v="dark"><svg class="ic"><use href="#i-moon"/></svg>Dark</button>
+                <button role="radio" data-v="system">Auto</button>
+              </div>
+            </div>
+            <div class="row">Density
+              <div class="seg" role="radiogroup" aria-label="Density" id="pref-density">
+                <button role="radio" data-v="comfortable">Comfortable</button>
+                <button role="radio" data-v="compact">Compact</button>
+              </div>
+            </div>
+            <label class="switch">Explain medical terms<input type="checkbox" id="pref-explain"></label>
+          </div>
+        </div>
+        <button class="btn ghost sm icon-btn" id="help-btn" aria-label="Help and keyboard shortcuts"><svg class="ic"><use href="#i-help"/></svg></button>
       </div>
-      <div class="live-pill">NOMI-3 Live</div>
+
+      <section class="banner" aria-label="Patient">
+        <div class="banner-id">
+          <div class="avatar" aria-hidden="true">RE</div>
+          <div>
+            <div class="pt-name">Robert Ellis</div>
+            <div class="pt-meta">68 y · Male · DOB 14 Mar 1958 · <span class="mono">MRN 88472-19</span></div>
+          </div>
+        </div>
+        <div class="banner-facts">
+          <span class="fact">4 West · Bed 12</span>
+          <span class="fact">Day 2 of admission</span>
+          <span class="fact alert"><svg class="ic"><use href="#i-alert"/></svg><b>Allergy:</b> Penicillin (rash)</span>
+          <span class="fact"><b>Code status:</b> Full code</span>
+        </div>
+      </section>
     </div>
 
-    <div id="dashboard" class="view active">
-      <div class="grid">
-        <div>
+    <main id="main" tabindex="-1">
+
+      <!-- ===================== OVERVIEW ===================== -->
+      <section class="view" id="view-overview" aria-labelledby="h-overview">
+        <div class="welcome" id="welcome">
+          <svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>
+          <p><b>NOMI suggests. You decide.</b> Every suggestion shows where it came from. Tap a source to see it. <b>Accept</b> and <b>Override</b> each take one tap and can be undone.</p>
+          <button class="btn sm" id="welcome-x">Got it</button>
+        </div>
+
+        <div class="view-head">
+          <div>
+            <h1 id="h-overview" tabindex="-1">Overview</h1>
+            <p>What needs your attention, what NOMI thinks and why, and the data behind it.</p>
+          </div>
+        </div>
+
+        <div class="ov-grid">
+          <div class="stack">
+            <!-- Needs attention -->
+            <section class="card" aria-labelledby="h-attn">
+              <div class="card-head"><h2 id="h-attn"><svg class="ic"><use href="#i-alert"/></svg>Needs attention</h2><span class="faint" style="font-size:.85rem">3 items · newest first</span></div>
+              <ul class="attn">
+                <li class="warn">
+                  <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>
+                  <div>
+                    <div class="t"><span class="sev warn">Caution</span> Potassium rising: 5.1 mmol/L. Spironolactone is due at 09:00</div>
+                    <div class="d">4.6 → 4.9 → 5.1 over 48 h. Also on lisinopril, and <span class="term" data-plain="kidney filtering rate">eGFR</span> is 42.
+                      <button class="cite data" data-src="lab-k" data-claim="Potassium 5.1 mmol/L (ref 3.5–5.0), rising over 48 h.">Lab · 06:12</button>
+                      <button class="cite" data-src="aha2022" data-claim="MRA eligibility: eGFR >30 mL/min/1.73 m² and K⁺ <5.0 mEq/L, with close monitoring of potassium and renal function."><svg class="ic"><use href="#i-book"/></svg>AHA/ACC 2022</button>
+                    </div>
+                  </div>
+                  <button class="btn sm" data-jump="r-spiro">Review</button>
+                </li>
+                <li class="info">
+                  <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+                  <div>
+                    <div class="t">Ejection fraction is still unknown</div>
+                    <div class="d">No echocardiogram on file. Long-term medicine choices depend on it.</div>
+                  </div>
+                  <button class="btn sm" data-jump="r-echo">Review</button>
+                </li>
+                <li class="info">
+                  <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+                  <div>
+                    <div class="t">Weight is 2.1 kg above dry weight</div>
+                    <div class="d">84.1 kg today vs. 82.0 kg recorded dry weight. Down 0.9 kg since admission.
+                      <button class="cite data" data-src="vit-weight" data-claim="Standing weight 84.1 kg at 05:50; dry weight 82.0 kg from last clinic visit.">Vitals · 05:50</button>
+                    </div>
+                  </div>
+                  <button class="btn sm" data-jump="r-diur">Review</button>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Leading assessment -->
+            <section class="card" aria-labelledby="h-assess">
+              <div class="card-head">
+                <span class="eyebrow">NOMI's leading assessment</span>
+                <span class="strength" data-level="4" role="img" aria-label="Evidence strength: strong, 4 of 4"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="lbl">Strong support</span></span>
+              </div>
+              <h2 class="assess-title" id="h-assess">Acute decompensated heart failure</h2>
+              <p class="assess-body">
+                Breathlessness, crackles, weight gain and a <span class="term" data-plain="heart strain blood test">BNP</span> of 832 pg/mL point most strongly to fluid overload from heart failure.
+                <button class="cite" data-src="maisel2002" data-claim="At a cut-off of 100 pg/mL, BNP was 90% sensitive and 76% specific for heart failure as the cause of acute dyspnea."><svg class="ic"><use href="#i-book"/></svg>Maisel 2002</button>
+                <button class="cite data" data-src="lab-bnp" data-claim="BNP 832 pg/mL at 06:12 today (1,020 on admission).">Lab · 06:12</button>
+                The ejection fraction is not known yet, so the type of heart failure is still open.
+              </p>
+
+              <div class="assess-grid">
+                <div class="why for">
+                  <h3><svg class="ic"><use href="#i-check"/></svg>Supports this</h3>
+                  <ul>
+                    <li>BNP 832 pg/mL, far above 100</li>
+                    <li>Bibasilar crackles, orthopnea (exam 07:30)</li>
+                    <li>Weight +2.1 kg vs. dry weight</li>
+                    <li>Chest X-ray: vascular congestion</li>
+                  </ul>
+                </div>
+                <div class="why against">
+                  <h3><svg class="ic"><use href="#i-question"/></svg>Weakens or complicates</h3>
+                  <ul>
+                    <li>Kidney disease can raise BNP by itself</li>
+                    <li>Troponin mildly raised (flat)</li>
+                    <li>Ejection fraction unknown</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="callout info unknowns">
+                <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+                <div><b>Not in the chart (NOMI can't see these):</b> echocardiogram, home medicine adherence, dietary salt, potassium supplements or salt substitutes.
+                  <div class="faint" style="font-size:.88rem;margin-top:.2rem">What would change this: a normal echo with no congestion on exam would make heart failure less likely. A rising troponin would make a heart attack more likely.</div>
+                </div>
+              </div>
+
+              <div class="decide" style="margin-top:1rem" id="assess-decide" data-item="assess" data-title="Leading assessment: acute decompensated HF"></div>
+
+              <div class="provenance">
+                <span><svg class="ic"><use href="#i-spark"/></svg> Generated 06:20 by NOMI-3</span>
+                <span>14 chart records · 9 published sources</span>
+                <span>Evidence index updated today</span>
+                <button class="btn ghost sm" data-goto="log">View decision log</button>
+              </div>
+            </section>
+
+            <!-- Recommendations -->
+            <section class="card" aria-labelledby="h-recs">
+              <div class="card-head"><h2 id="h-recs"><svg class="ic"><use href="#i-check"/></svg>Suggested next steps</h2><span class="faint" style="font-size:.85rem" id="rec-count"></span></div>
+              <div id="recs"></div>
+            </section>
+
+            <!-- Differential -->
+            <section class="card" aria-labelledby="h-ddx">
+              <div class="card-head"><h2 id="h-ddx"><svg class="ic"><use href="#i-pulse"/></svg>Other possibilities considered</h2><span class="faint" style="font-size:.85rem">Tap a row for reasons</span></div>
+              <div id="ddx"></div>
+            </section>
+          </div>
+
+          <!-- Right column: data -->
+          <div class="stack">
+            <section class="card" aria-labelledby="h-vitals">
+              <div class="card-head"><h2 id="h-vitals"><svg class="ic"><use href="#i-pulse"/></svg>Vitals</h2><span class="faint" style="font-size:.85rem">Last 48 h · 05:50</span></div>
+              <div class="vitals" id="vitals"></div>
+            </section>
+
+            <section class="card" aria-labelledby="h-labs">
+              <div class="card-head"><h2 id="h-labs"><svg class="ic"><use href="#i-flask"/></svg>Labs</h2><span class="faint" style="font-size:.85rem">06:12 today</span></div>
+              <table class="tbl" id="labs">
+                <thead><tr><th scope="col">Test</th><th scope="col">Result</th><th scope="col" class="hide-sm">Reference</th><th scope="col">48 h</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <p class="faint" style="font-size:.78rem;margin-top:.5rem">* Troponin reference is assay-specific (99th percentile).</p>
+            </section>
+
+            <section class="card" aria-labelledby="h-meds">
+              <div class="card-head"><h2 id="h-meds"><svg class="ic"><use href="#i-pill"/></svg>Active medicines</h2></div>
+              <div class="callout warn" style="margin-bottom:.75rem">
+                <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>
+                <div><b>Interaction: lisinopril + spironolactone</b><br><span class="muted" style="font-size:.92rem">Both raise potassium. Risk is higher with reduced kidney function.</span>
+                  <div class="cites">
+                    <button class="cite" data-src="juurlink2004" data-claim="After RALES, spironolactone prescribing rose sharply and hyperkalemia-associated hospitalizations and deaths rose in older adults on ACE inhibitors."><svg class="ic"><use href="#i-book"/></svg>Juurlink 2004</button>
+                    <button class="cite" data-src="kdigo2024" data-claim="Monitor potassium and kidney function when RAS inhibitors are used in CKD."><svg class="ic"><use href="#i-book"/></svg>KDIGO 2024</button>
+                  </div>
+                </div>
+              </div>
+              <table class="tbl" id="meds">
+                <thead><tr><th scope="col">Medicine</th><th scope="col">Dose</th><th scope="col">Next due</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== HANDOFF (I-PASS) ===================== -->
+      <section class="view" id="view-handoff" aria-labelledby="h-handoff">
+        <div class="view-head">
+          <div>
+            <h1 id="h-handoff" tabindex="-1">Shift handoff</h1>
+            <p>Day → Night, 19:00. Structured with <span class="term" data-plain="a standard handoff checklist">I-PASS</span>.
+              <button class="cite" data-src="ipass2014" data-claim="Implementing I-PASS was associated with a 23% reduction in medical errors and a 30% reduction in preventable adverse events."><svg class="ic"><use href="#i-book"/></svg>Starmer 2014</button></p>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap" class="no-print">
+            <button class="btn" id="edit-handoff" aria-pressed="false"><svg class="ic"><use href="#i-edit"/></svg>Edit</button>
+            <button class="btn" onclick="window.print()"><svg class="ic"><use href="#i-print"/></svg>Print</button>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-bottom:var(--gap)">
+          <svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg>
+          <div>NOMI drafted this from the chart at 18:40. <b>Check and edit it before you hand off.</b> Edits are saved to the decision log.</div>
+        </div>
+
+        <div class="card ipass">
+          <div class="ip-row">
+            <div class="ip-letter" aria-hidden="true">I</div>
+            <div>
+              <h3>Illness severity</h3>
+              <div class="sev-scale" role="radiogroup" aria-label="Illness severity" id="sev-scale">
+                <button class="chip" role="radio" aria-checked="false" data-v="Stable">Stable</button>
+                <button class="chip" role="radio" aria-checked="true" aria-pressed="true" data-v="Watcher">Watcher</button>
+                <button class="chip" role="radio" aria-checked="false" data-v="Unstable">Unstable</button>
+              </div>
+              <p class="sub" style="margin-top:.35rem">Watcher: rising potassium and active diuresis.</p>
+            </div>
+          </div>
+          <div class="ip-row">
+            <div class="ip-letter" aria-hidden="true">P</div>
+            <div>
+              <h3>Patient summary</h3>
+              <p class="editable" style="margin-top:.3rem">68-year-old man with CAD and CKD stage 3, admitted 2 days ago with breathlessness and fluid overload. Working diagnosis: acute decompensated heart failure. On IV furosemide 40 mg twice daily, net −1.2 L in the last 24 h. Breathing easier; on 2 L oxygen, SpO₂ 94%. Echo not done yet.</p>
+            </div>
+          </div>
+          <div class="ip-row">
+            <div class="ip-letter" aria-hidden="true">A</div>
+            <div>
+              <h3>Action list</h3>
+              <ul class="tasks">
+                <li><label><input type="checkbox"><span class="when">20:00</span><span>Strict intake/output. Urine output check.</span></label></li>
+                <li><label><input type="checkbox"><span class="when">21:00</span><span>Clarify spironolactone with prescriber before next dose (K⁺ 5.1).</span></label></li>
+                <li><label><input type="checkbox"><span class="when">22:00</span><span>Furosemide IV dose. Check BP first.</span></label></li>
+                <li><label><input type="checkbox"><span class="when">05:30</span><span>Morning standing weight, same scale, before breakfast.</span></label></li>
+                <li><label><input type="checkbox"><span class="when">06:00</span><span>Basic metabolic panel (potassium, creatinine).</span></label></li>
+              </ul>
+            </div>
+          </div>
+          <div class="ip-row">
+            <div class="ip-letter" aria-hidden="true">S</div>
+            <div>
+              <h3>Situation awareness &amp; contingency</h3>
+              <div class="ifthen">
+                <div><b>If</b><span>SpO₂ below 92% on 2 L, or breathing rate above 24 → raise oxygen per order and call the covering physician.</span></div>
+                <div><b>If</b><span>K⁺ 5.5 or higher, or new ECG changes → call the covering physician now. Follow the unit hyperkalemia protocol.</span></div>
+                <div><b>If</b><span>Systolic BP below 90 → hold furosemide and call the covering physician.</span></div>
+              </div>
+              <p class="sub" style="margin-top:.5rem">Thresholds shown are this unit's call parameters for this patient. Follow local protocol.</p>
+            </div>
+          </div>
+          <div class="ip-row">
+            <div class="ip-letter" aria-hidden="true">S</div>
+            <div>
+              <h3>Synthesis by receiver</h3>
+              <p class="sub">The receiving nurse summarizes back and confirms.</p>
+              <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap" id="receive-wrap">
+                <button class="btn primary" id="receive-btn"><svg class="ic"><use href="#i-check"/></svg>I've received this handoff</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== ASK NOMI ===================== -->
+      <section class="view" id="view-ask" aria-labelledby="h-ask">
+        <div class="view-head">
+          <div>
+            <h1 id="h-ask" tabindex="-1">Ask NOMI</h1>
+            <p>Questions about this patient or the evidence. NOMI shows what it read and links every claim to a source.</p>
+          </div>
+        </div>
+        <div class="ask-wrap">
+          <div>
+            <div class="thread" id="thread" aria-live="polite">
+              <div class="empty" id="ask-empty">
+                <svg class="ic" aria-hidden="true"><use href="#i-msg"/></svg>
+                <p><b>Ask anything about Robert's care.</b></p>
+                <p class="faint">Pick a suggestion to start, or type your own question.</p>
+              </div>
+            </div>
+            <form class="composer" id="composer">
+              <label for="ask-input" class="sr-only">Your question</label>
+              <input id="ask-input" autocomplete="off" placeholder="Ask about this patient or the literature…">
+              <button class="btn primary" type="submit"><svg class="ic"><use href="#i-send"/></svg>Ask</button>
+            </form>
+          </div>
+          <aside class="card">
+            <h2 class="eyebrow" style="margin-bottom:.6rem">Suggested questions</h2>
+            <div class="suggest" id="suggest"></div>
+            <p class="faint" style="font-size:.8rem;margin-top:.8rem">Prototype: only the suggested questions have full, sourced answers.</p>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================== EVIDENCE MAP ===================== -->
+      <section class="view" id="view-map" aria-labelledby="h-map">
+        <div class="view-head">
+          <div>
+            <h1 id="h-map" tabindex="-1">Evidence map</h1>
+            <p>How Robert's data, conditions, medicines and published evidence connect. Select a node to trace its links.</p>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Filter nodes" id="map-filter">
+            <button role="radio" aria-checked="true" data-v="all">All</button>
+            <button role="radio" aria-checked="false" data-v="finding">Patient data</button>
+            <button role="radio" aria-checked="false" data-v="med">Medicines</button>
+            <button role="radio" aria-checked="false" data-v="source">Evidence</button>
+          </div>
+        </div>
+        <div class="map-wrap">
           <div class="card">
-            <div class="patient-row">
-              <div class="avatar">RE</div>
-              <div>
-                <strong>Robert Ellis</strong>
-                <div class="meta" style="margin-top:2px;">Suspected acute decompensated heart failure</div>
-              </div>
-            </div>
-            <div style="font-size:14px; line-height:1.55; margin-bottom:12px;">
-              Elevated BNP (832 pg/mL) with dyspnea, history of CAD and CKD stage 3. Most consistent with acute decompensated heart failure. Consider echocardiography and careful diuretic titration.
-            </div>
-            <span class="badge badge-high">High Confidence</span>
-            <div class="vitals">
-              <div class="vital"><div class="val">128/76</div><div class="lbl">BP</div></div>
-              <div class="vital"><div class="val">82</div><div class="lbl">HR</div></div>
-              <div class="vital"><div class="val">94%</div><div class="lbl">SpO₂</div></div>
-            </div>
+            <svg class="graph" id="graph" viewBox="0 0 820 500" role="group" aria-label="Evidence map. Use Tab to move between nodes and Enter to select."></svg>
+            <div class="legend" id="legend"></div>
           </div>
+          <aside class="card" id="map-detail" aria-live="polite">
+            <div class="empty" style="padding:1.5rem .5rem">
+              <svg class="ic" aria-hidden="true"><use href="#i-net"/></svg>
+              <p><b>Select a node</b></p>
+              <p class="faint" style="font-size:.9rem">Try <b>Potassium 5.1</b> to see why spironolactone is flagged.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
 
-          <div class="card" style="margin-top:16px;">
-            <h3>Differential Diagnosis <span class="badge badge-cyan">Cited</span></h3>
-            <div class="diff-item">
-              <div>
-                <strong>1. Acute decompensated HF</strong>
-                <div style="font-size:12px; color:var(--muted);">Most consistent with presentation & labs</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="strength"><div class="strength-bar" style="width:94%"></div></div>
-                <span class="badge badge-high">Strong</span>
-              </div>
+      <!-- ===================== DECISION LOG ===================== -->
+      <section class="view" id="view-log" aria-labelledby="h-log">
+        <div class="view-head">
+          <div>
+            <h1 id="h-log" tabindex="-1">Decision log</h1>
+            <p>Every NOMI suggestion and every human decision, with time, person and source snapshot. Read-only.</p>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <div class="seg" role="radiogroup" aria-label="Filter log" id="log-filter">
+              <button role="radio" aria-checked="true" data-v="all">All</button>
+              <button role="radio" aria-checked="false" data-v="human">Decisions</button>
+              <button role="radio" aria-checked="false" data-v="override">Overrides</button>
             </div>
-            <div class="diff-item">
-              <div>
-                <strong>2. Acute coronary syndrome</strong>
-                <div style="font-size:12px; color:var(--muted);">Troponin elevation — consider ischemia</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="strength"><div class="strength-bar" style="width:46%"></div></div>
-                <span class="badge badge-med">Possible</span>
-              </div>
-            </div>
-            <div class="diff-item">
-              <div>
-                <strong>3. Community-acquired pneumonia</strong>
-                <div style="font-size:12px; color:var(--muted);">Less likely without fever or leukocytosis</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="strength"><div class="strength-bar" style="width:18%"></div></div>
-                <span class="badge badge-low">Low</span>
-              </div>
-            </div>
+            <button class="btn" id="export-log"><svg class="ic"><use href="#i-down"/></svg>Export</button>
           </div>
         </div>
-
-        <div>
-          <div class="card">
-            <h3>Key Labs</h3>
-            <div class="diff-item"><span>BNP</span><strong>832 pg/mL ↑</strong></div>
-            <div class="diff-item"><span>Troponin I</span><strong>0.04 ng/mL ↑</strong></div>
-            <div class="diff-item"><span>Creatinine</span><strong>1.6 mg/dL ↑</strong></div>
-            <div class="diff-item"><span>eGFR</span><strong>42 mL/min ↓</strong></div>
+        <div class="card" style="padding:0;overflow-x:auto">
+          <table class="tbl" id="log-table" style="min-width:42rem">
+            <thead><tr><th scope="col" style="padding-left:var(--pad)">Time</th><th scope="col">Who</th><th scope="col">What happened</th><th scope="col">Basis</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="log-empty" class="empty" hidden>
+            <svg class="ic" aria-hidden="true"><use href="#i-hist"/></svg>
+            <p><b>No overrides yet today.</b></p>
+            <p class="faint">When anyone overrides a NOMI suggestion, it shows here with their reason.</p>
           </div>
-          <div class="card" style="margin-top:16px;">
-            <h3>Drug Interaction</h3>
-            <div style="padding:12px; background:rgba(239,68,68,0.08); border-radius:8px; font-size:13px; border-left:3px solid var(--danger);">
-              <strong style="color:#f87171;">Lisinopril + Spironolactone</strong><br>
-              Increased hyperkalemia risk with CKD. Severity: Moderate.
+        </div>
+      </section>
+
+      <!-- ===================== PATIENTS ===================== -->
+      <section class="view" id="view-patients" aria-labelledby="h-patients">
+        <div class="view-head">
+          <div>
+            <h1 id="h-patients" tabindex="-1">My patients</h1>
+            <p>4 West · 5 patients. Sorted by severity, then by new results.</p>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow-x:auto">
+          <table class="tbl" id="pt-table" style="min-width:40rem">
+            <thead><tr><th scope="col" style="padding-left:var(--pad)">Bed</th><th scope="col">Patient</th><th scope="col">Reason for stay</th><th scope="col">Severity</th><th scope="col">NOMI flags</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===================== FAMILY VIEW ===================== -->
+      <section class="view family" id="view-family" aria-labelledby="h-family">
+        <div class="view-head">
+          <div>
+            <h1 id="h-family" tabindex="-1">Robert's care today</h1>
+            <p class="release"><svg class="ic" style="color:var(--ok)"><use href="#i-shield"/></svg>Reviewed and shared by Dr. Morgan, today at 08:15.</p>
+          </div>
+        </div>
+        <div class="stack">
+          <section class="card">
+            <h2>What's happening</h2>
+            <p style="margin-top:.5rem">Robert's heart is having trouble keeping up with what his body needs. Because of that, fluid has built up in his lungs and legs, and that is why he has been short of breath. Doctors call this <b>heart failure</b>. It does not mean the heart has stopped. It means the heart needs help to keep up.</p>
+            <p style="margin-top:.6rem">He is breathing more easily than when he arrived, and his weight is going down as the extra fluid leaves his body.</p>
+          </section>
+          <section class="card">
+            <h2>What the care team is doing</h2>
+            <ul>
+              <li><b>Water pills through his IV</b> to remove the extra fluid.</li>
+              <li><b>A heart ultrasound</b> (echocardiogram) to see how well his heart pumps and relaxes.</li>
+              <li><b>Daily blood tests</b> to check his kidneys and potassium, a mineral that must stay in a safe range.</li>
+              <li><b>Weighing him every morning</b> to see how much fluid has come off.</li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2>How you can help</h2>
+            <ul>
+              <li>Bring a list (or the bottles) of every medicine and supplement he takes at home.</li>
+              <li>Tell the nurse if he uses a <b>salt substitute</b>. Many contain potassium.</li>
+              <li>Please don't bring salty snacks for now.</li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2>Questions you might ask the team</h2>
+            <div class="q">
+              <div>"What did the heart ultrasound show?"</div>
+              <div>"Which medicines will change when he goes home?"</div>
+              <div>"What weight gain should make us call the doctor?"</div>
             </div>
+          </section>
+          <div class="callout info">
+            <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+            <div><b>Need someone now?</b> Call the 4 West nurses' station or press the call button by the bed. This page is for information only. It does not replace talking with the care team.</div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div id="copilot" class="view">
-      <div class="card">
-        <h3>NOMI Clinical Copilot</h3>
-        <div class="msg user">68M, elevated BNP, dyspnea, CAD + CKD. Most likely diagnosis and next steps?</div>
-        <div class="msg ai" style="margin-top:10px;">
-          <strong>Most likely: Acute decompensated heart failure</strong><br><br>
-          Supporting: BNP 832, dyspnea, known CAD, CKD stage 3.<br><br>
-          Recommended next steps:<br>
-          • Echocardiogram for EF and wall motion<br>
-          • Careful diuretic titration given renal function<br>
-          • Close potassium monitoring (ACEI + spironolactone)<br><br>
-          <span style="font-size:12px; color:var(--muted);">Correlate with full clinical context. Not a substitute for judgment.</span>
-        </div>
-      </div>
-    </div>
-
-    <div id="graph" class="view">
-      <div class="card">
-        <h3>Neural Knowledge Graph — Heart Failure</h3>
-        <div class="graph-box">
-          <div class="node" style="top:38%; left:28%;"></div>
-          <div class="node" style="top:28%; left:48%;"></div>
-          <div class="node" style="top:52%; left:52%;"></div>
-          <div class="node" style="top:42%; left:68%;"></div>
-          <div style="text-align:center; position:relative; z-index:1;">
-            Patient data ↔ Guidelines ↔ Literature<br>
-            <span style="font-size:12px;">Elevated BNP · HFpEF · EMPEROR · SGLT2 · CKD</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="patients" class="view"><div class="card"><h3>Patient List</h3><p style="color:var(--muted);">Full roster with AI risk flags in next build.</p></div></div>
-    <div id="monitoring" class="view"><div class="card"><h3>Remote Monitoring</h3><p style="color:var(--muted);">Vitals trends, anomaly detection, predictive alerts.</p></div></div>
-    <div id="messages" class="view"><div class="card"><h3>Secure Messaging</h3><p style="color:var(--muted);">AI-assisted, clinician-reviewed communications.</p></div></div>
-
-    <div class="disclaimer">NOMI is a concept prototype. Not a substitute for professional medical advice or clinical judgment.</div>
-  </main>
-
-  <aside class="right-panel">
-    <div style="font-weight:600; font-size:14px;">NOMI AI</div>
-    <div class="msg ai">I've reviewed Robert Ellis. Elevated BNP + dyspnea most consistent with decompensated HF. Want the full differential or key sources?</div>
-    <div class="source">
-      <strong>2022 AHA/ACC/HFSA Guideline</strong>
-      Management of Heart Failure — Class I recommendations for GDMT.
-    </div>
-    <div class="source">
-      <strong>PubMed 37894521</strong>
-      Biomarker-guided therapy in heart failure.
-    </div>
-    <div class="input-bar">
-      <input type="text" placeholder="Ask about this patient or literature...">
-      <button class="btn">Send</button>
-    </div>
-  </aside>
+      <p class="disclaimer">NOMI is a design prototype with a fictional patient. It is not a medical device and does not replace clinical judgment. The published sources cited are real. Recommendation classes are summarized from them.</p>
+    </main>
+  </div>
 </div>
 
+<!-- Evidence drawer -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="drawer-head">
+    <span class="eyebrow" id="drawer-title">Source</span>
+    <button class="btn ghost sm icon-btn" id="drawer-close" aria-label="Close source"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<dialog id="help">
+  <div class="dlg-head"><h2 style="font-size:1.1rem">Using NOMI</h2><button class="btn ghost sm icon-btn" onclick="this.closest('dialog').close()" aria-label="Close help"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body">
+    <ol class="howto">
+      <li><div><b>Start with "Needs attention."</b><br><span class="muted">The most important items come first.</span></div></li>
+      <li><div><b>Tap a source to check it.</b><br><span class="muted">Grey chips are your patient's own chart data. Blue chips with a book icon are published guidelines and studies.</span></div></li>
+      <li><div><b>Accept or Override.</b><br><span class="muted">Both take one tap, both can be undone, and both are recorded in the decision log.</span></div></li>
+    </ol>
+    <div>
+      <h3 class="eyebrow" style="margin-bottom:.4rem">Keyboard shortcuts</h3>
+      <table class="tbl">
+        <tr><td><kbd>1</kbd>–<kbd>6</kbd></td><td>Switch pages</td></tr>
+        <tr><td><kbd>/</kbd></td><td>Ask NOMI</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Open this help</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Close a source or popup</td></tr>
+      </table>
+    </div>
+    <p class="faint" style="font-size:.85rem">Need bigger text? Use <b>Display</b> at the top right. Turn on <b>Explain medical terms</b> for plain-language definitions.</p>
+  </div>
+</dialog>
+
 <script>
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    item.classList.add('active');
-    const view = item.dataset.view;
-    document.getElementById(view).classList.add('active');
-    const titles = {
-      dashboard: 'Patient Intelligence',
-      copilot: 'AI Clinical Copilot',
-      graph: 'Neural Knowledge Graph',
-      patients: 'Patients',
-      monitoring: 'Remote Monitoring',
-      messages: 'Secure Messages'
-    };
-    document.getElementById('page-title').textContent = titles[view] || 'NOMI';
-  });
+/* ============================================================
+   DATA — fictional patient; real, citable published sources
+   ============================================================ */
+const SOURCES = {
+  aha2022: { kind: 'Guideline', title: '2022 AHA/ACC/HFSA Guideline for the Management of Heart Failure', cite: 'Heidenreich PA, et al. Circulation. 2022;145:e895–e1032.', org: 'American Heart Association / American College of Cardiology / Heart Failure Society of America', note: 'Society guideline. Recommendations are graded by Class (strength) and Level of Evidence (quality).' },
+  esc2023: { kind: 'Guideline', title: '2023 Focused Update of the 2021 ESC Guidelines for the diagnosis and treatment of acute and chronic heart failure', cite: 'McDonagh TA, et al. Eur Heart J. 2023;44:3627–3639.', org: 'European Society of Cardiology', note: 'Focused update. Adds SGLT2 inhibitors for HFmrEF/HFpEF.' },
+  dose2011: { kind: 'Randomized trial', title: 'Diuretic Strategies in Patients with Acute Decompensated Heart Failure (DOSE)', cite: 'Felker GM, et al. N Engl J Med. 2011;364:797–805.', org: 'NHLBI Heart Failure Clinical Research Network', note: 'Randomized, double-blind, 2×2 factorial trial. 308 patients.' },
+  maisel2002: { kind: 'Diagnostic study', title: 'Rapid measurement of B-type natriuretic peptide in the emergency diagnosis of heart failure (Breathing Not Properly)', cite: 'Maisel AS, et al. N Engl J Med. 2002;347:161–167.', org: 'Multinational prospective study', note: 'Prospective diagnostic accuracy study. 1,586 emergency patients with acute dyspnea.' },
+  juurlink2004: { kind: 'Observational study', title: 'Rates of hyperkalemia after publication of the Randomized Aldactone Evaluation Study', cite: 'Juurlink DN, et al. N Engl J Med. 2004;351:543–551.', org: 'Population-based time-series analysis, Ontario', note: 'Observational. Shows real-world harm when trial criteria are not applied.' },
+  udmi2018: { kind: 'Consensus definition', title: 'Fourth Universal Definition of Myocardial Infarction (2018)', cite: 'Thygesen K, et al. Circulation. 2018;138:e618–e651.', org: 'ESC / ACC / AHA / WHF joint task force', note: 'Expert consensus document.' },
+  emperor2021: { kind: 'Randomized trial', title: 'Empagliflozin in Heart Failure with a Preserved Ejection Fraction (EMPEROR-Preserved)', cite: 'Anker SD, et al. N Engl J Med. 2021;385:1451–1461.', org: 'Boehringer Ingelheim / Eli Lilly', note: 'Randomized, placebo-controlled. 5,988 patients, LVEF >40%.' },
+  deliver2022: { kind: 'Randomized trial', title: 'Dapagliflozin in Heart Failure with Mildly Reduced or Preserved Ejection Fraction (DELIVER)', cite: 'Solomon SD, et al. N Engl J Med. 2022;387:1089–1098.', org: 'AstraZeneca', note: 'Randomized, placebo-controlled. 6,263 patients, LVEF >40%.' },
+  kdigo2024: { kind: 'Guideline', title: 'KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease', cite: 'Kidney Int. 2024;105(4S):S117–S314.', org: 'Kidney Disease: Improving Global Outcomes', note: 'International guideline.' },
+  kdigoaki2012: { kind: 'Guideline', title: 'KDIGO Clinical Practice Guideline for Acute Kidney Injury', cite: 'Kidney Int Suppl. 2012;2:1–138.', org: 'Kidney Disease: Improving Global Outcomes', note: 'Defines AKI as creatinine rise ≥0.3 mg/dL within 48 h, or ≥1.5× baseline within 7 days, or low urine output.' },
+  ipass2014: { kind: 'Interventional study', title: 'Changes in medical errors after implementation of a handoff program (I-PASS)', cite: 'Starmer AJ, et al. N Engl J Med. 2014;371:1803–1812.', org: 'I-PASS Study Group, 9 pediatric residency programs', note: 'Prospective intervention study. Pediatric inpatient units.' },
+};
+const LABS = [
+  { id: 'lab-bnp', name: 'BNP', plain: 'heart strain marker', val: '832', unit: 'pg/mL', ref: '< 100', flag: 'H', trend: [1020, 910, 832], loinc: '30934-4' },
+  { id: 'lab-k', name: 'Potassium', val: '5.1', unit: 'mmol/L', ref: '3.5–5.0', flag: 'H', trend: [4.6, 4.9, 5.1], loinc: '2823-3' },
+  { id: 'lab-cr', name: 'Creatinine', val: '1.7', unit: 'mg/dL', ref: '0.7–1.3', flag: 'H', trend: [1.5, 1.6, 1.7], loinc: '2160-0' },
+  { id: 'lab-egfr', name: 'eGFR', plain: 'kidney filtering rate', val: '42', unit: 'mL/min/1.73m²', ref: '≥ 60', flag: 'L', trend: [49, 46, 42] },
+  { id: 'lab-trop', name: 'Troponin I', plain: 'heart muscle injury marker', val: '0.04', unit: 'ng/mL', ref: '≤ 0.03*', flag: 'H', trend: [0.04, 0.04, 0.04], loinc: '10839-9' },
+  { id: 'lab-na', name: 'Sodium', val: '136', unit: 'mmol/L', ref: '135–145', flag: '', trend: [134, 135, 136] },
+  { id: 'lab-wbc', name: 'White cells', val: '7.8', unit: '×10⁹/L', ref: '4.0–11.0', flag: '', trend: [8.1, 7.9, 7.8] },
+];
+const VITALS = [
+  { k: 'Blood pressure', v: '128/76', u: 'mmHg', trend: [134, 131, 128] },
+  { k: 'Heart rate', v: '82', u: 'bpm', trend: [96, 88, 82] },
+  { k: 'Breathing rate', v: '22', u: '/min', trend: [26, 24, 22], watch: true },
+  { k: 'SpO₂', v: '94%', u: 'on 2 L O₂', trend: [91, 93, 94], watch: true },
+  { k: 'Temperature', v: '36.8', u: '°C', trend: [37.0, 36.9, 36.8] },
+  { k: 'Weight', v: '84.1', u: 'kg · dry 82.0', trend: [85.0, 84.6, 84.1], watch: true, src: 'vit-weight' },
+];
+const MEDS = [
+  ['Furosemide', '40 mg IV · twice daily', '10:00'],
+  ['Spironolactone', '25 mg oral · daily', '09:00', true],
+  ['Lisinopril', '10 mg oral · daily', '09:00', true],
+  ['Aspirin', '81 mg oral · daily', '09:00'],
+  ['Atorvastatin', '40 mg oral · nightly', '21:00'],
+  ['Heparin', '5,000 units SC · every 8 h', '14:00'],
+];
+// Chart provenance entries (FHIR-style)
+LABS.forEach(l => { SOURCES[l.id] = { kind: 'Chart data', title: `${l.name}: ${l.val} ${l.unit}`, chart: true, rows: [['Record', 'FHIR Observation'], ['Code', l.loinc ? `LOINC ${l.loinc}` : '—'], ['Reference', l.ref], ['Collected', 'Today 06:12'], ['Verified', 'Today 06:40 · Central Lab'], ['Previous', l.trend.slice(0, 2).join(' → ') + ` ${l.unit}`]] }; });
+SOURCES['vit-weight'] = { kind: 'Chart data', title: 'Standing weight: 84.1 kg', chart: true, rows: [['Record', 'FHIR Observation · body weight'], ['Taken', 'Today 05:50 · RN J. Alvarez'], ['Dry weight', '82.0 kg (cardiology clinic, 3 months ago)'], ['Trend', '85.0 → 84.6 → 84.1 kg']] };
+SOURCES['img-cxr'] = { kind: 'Chart data', title: 'Chest X-ray report (day 1)', chart: true, rows: [['Record', 'FHIR DiagnosticReport · radiology'], ['Impression', 'Pulmonary vascular congestion, small bilateral effusions. No focal consolidation.'], ['Signed', 'Day 1 · Radiology']] };
+SOURCES['note-exam'] = { kind: 'Chart data', title: 'Physician progress note: exam', chart: true, rows: [['Record', 'FHIR DocumentReference'], ['Findings', 'Bibasilar crackles, JVP raised, 2+ ankle edema, orthopnea. ECG: sinus rhythm, no acute ST changes.'], ['Signed', 'Today 07:30 · Dr. A. Morgan']] };
+
+const RECS = [
+  { id: 'r-spiro', caution: true, title: 'Review spironolactone before the 09:00 dose', detail: 'Potassium is 5.1 and rising, he is also on lisinopril, and eGFR is 42. Consider holding and rechecking potassium.', level: 3, lbl: 'Moderate',
+    cites: [['aha2022', 'MRA eligibility: eGFR >30 mL/min/1.73 m² and K⁺ <5.0 mEq/L, with close monitoring of potassium and renal function (Class 1, LOE A, in HFrEF).', 'AHA/ACC 2022'], ['juurlink2004', 'Hyperkalemia-associated hospitalizations and deaths rose after spironolactone use increased post-RALES.', 'Juurlink 2004'], ['lab-k', 'Potassium 4.6 → 4.9 → 5.1 mmol/L over 48 h.', 'Lab · 06:12']] },
+  { id: 'r-echo', title: 'Order a transthoracic echocardiogram', detail: 'Measures ejection fraction and valves. That decides which long-term heart failure medicines apply.', level: 4, lbl: 'Strong',
+    cites: [['aha2022', 'In suspected or newly diagnosed HF, TTE should be performed to assess cardiac structure and function (Class 1, LOE C-LD).', 'AHA/ACC 2022']] },
+  { id: 'r-diur', title: 'Continue IV loop diuretic. Track weight, urine output, creatinine and potassium daily', detail: 'He is still 2.1 kg above dry weight. Creatinine has risen 0.2 mg/dL, which is below the AKI threshold.', level: 4, lbl: 'Strong',
+    cites: [['aha2022', 'In HF hospitalized with fluid overload, IV loop diuretics should be given promptly to improve symptoms and reduce morbidity (Class 1, LOE B-NR).', 'AHA/ACC 2022'], ['dose2011', 'No significant difference in symptom relief between bolus vs. continuous or low vs. high dose. The high-dose strategy gave more fluid loss, with transient worsening of renal function.', 'DOSE 2011'], ['kdigoaki2012', 'AKI defined as a creatinine rise ≥0.3 mg/dL within 48 h. Current rise is 0.2 mg/dL.', 'KDIGO AKI']] },
+  { id: 'r-trop', title: 'Repeat troponin and ECG only if symptoms change', detail: 'Troponin is mildly raised but flat. A stable pattern fits chronic myocardial injury (CKD, heart failure) better than an acute heart attack.', level: 3, lbl: 'Moderate',
+    cites: [['udmi2018', 'Acute myocardial injury requires a rise and/or fall of cTn values. A stable elevated value suggests chronic injury.', 'UDMI 2018'], ['lab-trop', 'Troponin I 0.04 → 0.04 → 0.04 ng/mL.', 'Lab · 06:12']] },
+];
+const DDX = [
+  { name: 'Acute coronary syndrome', sub: 'Troponin raised but flat', level: 2, lbl: 'Limited',
+    pro: ['Troponin I above reference', 'Known coronary artery disease'], con: ['Troponin flat across 3 draws', 'No chest pain documented', 'ECG: no acute ST changes'], next: 'Repeat troponin + ECG if chest pain or new ECG changes.',
+    cites: [['udmi2018', 'Diagnosis of MI requires a rise and/or fall of troponin with clinical evidence of ischemia.', 'UDMI 2018'], ['note-exam', 'ECG: sinus rhythm, no acute ST changes.', 'Note · 07:30']] },
+  { name: 'Worsening kidney function (cardiorenal)', sub: 'Coexisting problem, not an alternative', level: 3, lbl: 'Moderate',
+    pro: ['Creatinine 1.5 → 1.7 mg/dL over 48 h', 'Active diuresis'], con: ['Rise is below the KDIGO AKI threshold (0.3 mg/dL / 48 h)'], next: 'Daily creatinine. Reassess diuretic dose if creatinine keeps rising.',
+    cites: [['kdigoaki2012', 'AKI: creatinine rise ≥0.3 mg/dL within 48 h.', 'KDIGO AKI'], ['lab-cr', 'Creatinine 1.5 → 1.6 → 1.7 mg/dL.', 'Lab · 06:12']] },
+  { name: 'Community-acquired pneumonia', sub: 'Unlikely on current data', level: 1, lbl: 'Low',
+    pro: ['Shortness of breath'], con: ['No fever (36.8 °C)', 'White cells normal (7.8)', 'Chest X-ray: no focal consolidation'], next: 'Reconsider if fever, productive cough or new infiltrate.',
+    cites: [['img-cxr', 'No focal consolidation on day-1 chest X-ray.', 'CXR · Day 1'], ['lab-wbc', 'WBC 7.8 ×10⁹/L.', 'Lab · 06:12']] },
+];
+const PATIENTS = [
+  { bed: '15', name: 'James Okafor', age: '59 M', reason: 'COPD exacerbation', sev: 'unstable', flag: 'Rising CO₂ on last blood gas' },
+  { bed: '12', name: 'Robert Ellis', age: '68 M', reason: 'Acute decompensated heart failure', sev: 'watcher', flag: 'Potassium rising on MRA + ACE inhibitor', open: true },
+  { bed: '18', name: 'Samuel Reyes', age: '45 M', reason: 'DKA, resolving', sev: 'watcher', flag: 'Glucose recheck due 09:00' },
+  { bed: '14', name: 'Maria Santos', age: '74 F', reason: 'Community-acquired pneumonia', sev: 'stable', flag: '—' },
+  { bed: '17', name: 'Linda Park', age: '81 F', reason: 'Hip fracture, post-op day 1', sev: 'stable', flag: 'High fall risk' },
+];
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const store = {
+  get(k, f) { try { const v = localStorage.getItem('nomi.' + k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } },
+  set(k, v) { try { localStorage.setItem('nomi.' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const icon = id => `<svg class="ic" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const T0 = Date.now();
+function clock() { const m = 8 * 60 + 42 + Math.floor((Date.now() - T0) / 60000); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
+function citeBtn([src, claim, label]) {
+  const chart = SOURCES[src] && SOURCES[src].chart;
+  return `<button class="cite${chart ? ' data' : ''}" data-src="${src}" data-claim="${esc(claim)}">${chart ? '' : icon('book')}${esc(label)}</button>`;
+}
+function strength(level, lbl) {
+  return `<span class="strength" data-level="${level}" role="img" aria-label="Evidence strength: ${lbl}, ${level} of 4"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="lbl">${lbl}</span></span>`;
+}
+function spark(vals, cls = 'spark', w = 100, h = 26) {
+  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1, pad = 4;
+  const pts = vals.map((v, i) => [pad + i * (w - pad * 2) / (vals.length - 1), h - pad - (v - min) / span * (h - pad * 2)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  return `<svg class="${cls}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="2.6"/></svg>`;
+}
+
+/* ============================================================
+   PREFERENCES + ROLE
+   ============================================================ */
+const root = document.documentElement;
+const ROLES = {
+  physician: { name: 'Dr. Alex Morgan', initials: 'AM', role: 'Hospitalist · On shift', home: 'overview' },
+  nurse: { name: 'Jordan Alvarez, RN', initials: 'JA', role: 'Charge nurse · 4 West', home: 'handoff' },
+  family: { name: 'Family member', initials: 'F', role: 'View only', home: 'family' },
+};
+function setSeg(group, v) { $$('button', group).forEach(b => { const on = b.dataset.v === v || b.dataset.role === v; b.setAttribute(b.getAttribute('role') === 'radio' ? 'aria-checked' : 'aria-pressed', on); }); }
+function applyPref(k, v) {
+  store.set(k, v);
+  if (k === 'theme') { const dark = v === 'dark' || (v === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); root.dataset.theme = dark ? 'dark' : 'light'; setSeg($('#pref-theme'), v); }
+  if (k === 'text') { root.dataset.text = v; setSeg($('#pref-text'), v); }
+  if (k === 'density') { root.dataset.density = v; setSeg($('#pref-density'), v); }
+  if (k === 'explain') { root.classList.toggle('explain', v); $('#pref-explain').checked = v; }
+}
+['theme', 'text', 'density'].forEach(k => {
+  const g = $('#pref-' + k);
+  setSeg(g, store.get(k, { theme: 'system', text: 'md', density: 'comfortable' }[k]));
+  g.addEventListener('click', e => { const b = e.target.closest('button'); if (b) applyPref(k, b.dataset.v); });
 });
+$('#pref-explain').checked = store.get('explain', false);
+$('#pref-explain').addEventListener('change', e => applyPref('explain', e.target.checked));
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (store.get('theme', 'system') === 'system') applyPref('theme', 'system'); });
+
+const pop = $('#display-pop'), popBtn = $('#display-btn');
+popBtn.addEventListener('click', () => { const o = !pop.classList.contains('open'); pop.classList.toggle('open', o); popBtn.setAttribute('aria-expanded', o); });
+document.addEventListener('click', e => { if (!e.target.closest('#display-pop, #display-btn')) { pop.classList.remove('open'); popBtn.setAttribute('aria-expanded', false); } });
+
+function setRole(r, silent) {
+  root.dataset.role = r;
+  setSeg($('.topbar .seg'), r);
+  const p = ROLES[r];
+  $('#user-name').textContent = p.name; $('#user-initials').textContent = p.initials;
+  $('#user-role').innerHTML = `<span class="status-dot"></span>${p.role}`;
+  if (r === 'family') { if (!store.get('text-family-set', false)) { applyPref('text', 'lg'); store.set('text-family-set', true); } applyPref('explain', true); }
+  setView(p.home, true);
+  store.set('role', r);
+  if (!silent) toast(`Now viewing as ${r === 'physician' ? 'physician' : r === 'nurse' ? 'nurse' : 'family'}.`);
+}
+$('.topbar .seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setRole(b.dataset.role); });
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const VIEWS = ['overview', 'handoff', 'ask', 'map', 'log', 'patients'];
+function setView(v, noFocus) {
+  $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
+  $$('.nav-btn').forEach(b => b.dataset.view === v ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  if (v === 'log') renderLog();
+  window.scrollTo({ top: 0 });
+  if (!noFocus) $('#view-' + v + ' h1')?.focus({ preventScroll: true });
+}
+$$('.nav-btn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-goto]'); if (g) setView(g.dataset.goto);
+  const j = e.target.closest('[data-jump]');
+  if (j) { const el = document.getElementById(j.dataset.jump); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.animate?.([{ boxShadow: '0 0 0 4px var(--focus-halo)' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 1400 }); el.querySelector('button')?.focus({ preventScroll: true }); }
+});
+
+/* ============================================================
+   EVIDENCE DRAWER
+   ============================================================ */
+let lastFocus = null;
+function openSource(id, claim, from) {
+  const s = SOURCES[id]; if (!s) return;
+  lastFocus = from || document.activeElement;
+  const kindCls = s.chart ? 'neutral' : s.kind === 'Guideline' || s.kind === 'Consensus definition' ? 'info' : 'ok';
+  let html = `<div class="src-type"><span class="sev ${kindCls}">${s.chart ? icon('flask') : icon('book')}${esc(s.kind)}</span></div>
+    <div class="src-title">${esc(s.title)}</div>`;
+  if (claim) html += `<div><div class="eyebrow" style="margin-bottom:.35rem">How NOMI used it</div><div class="claim">${esc(claim)}</div></div>`;
+  if (s.chart) {
+    html += `<dl class="kv">${s.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+      <div class="callout info">${icon('shield')}<div style="font-size:.9rem">From Robert's own record via FHIR. NOMI read it and did not change it.</div></div>`;
+  } else {
+    html += `<dl class="kv"><dt>Citation</dt><dd>${esc(s.cite)}</dd><dt>Published by</dt><dd>${esc(s.org)}</dd><dt>Study type</dt><dd>${esc(s.note)}</dd><dt>Last checked</dt><dd>Today 06:20. No newer superseding guidance in the NOMI index.</dd></dl>
+      <div class="callout warn">${icon('alert')}<div style="font-size:.9rem">Summaries are NOMI's paraphrase. Check the original before relying on specific numbers.</div></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn" href="https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(s.title)}" target="_blank" rel="noopener">${icon('book')}Find on PubMed</a></div>`;
+  }
+  $('#drawer-title').textContent = s.chart ? 'Chart data' : 'Published source';
+  $('#drawer-body').innerHTML = html;
+  $('#drawer').classList.add('open'); $('#scrim').classList.add('show');
+  setTimeout(() => $('#drawer-close').focus(), 50);
+}
+function closeDrawer() {
+  if (!$('#drawer').classList.contains('open')) return;
+  $('#drawer').classList.remove('open'); $('#scrim').classList.remove('show');
+  lastFocus?.focus?.();
+}
+document.addEventListener('click', e => { const c = e.target.closest('.cite'); if (c) { e.stopPropagation(); openSource(c.dataset.src, c.dataset.claim, c); } });
+$('#drawer-close').addEventListener('click', closeDrawer);
+$('#scrim').addEventListener('click', closeDrawer);
+$('#drawer').addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const f = $$('button, a[href]', $('#drawer')); const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+/* ============================================================
+   DECISION LOG (audit trail)
+   ============================================================ */
+const LOG = [
+  { t: '06:20', who: 'NOMI', ai: true, what: 'Generated assessment and 4 suggested next steps', basis: 'NOMI-3 · 14 chart records · evidence index 2026-10-18' },
+  { t: '06:41', who: 'Lab interface', ai: true, what: 'Potassium 5.1 mmol/L resulted. NOMI raised a caution flag.', basis: 'FHIR Observation · LOINC 2823-3' },
+  { t: '07:05', who: 'J. Alvarez, RN', what: 'Received night-to-day handoff', basis: 'I-PASS handoff v3' },
+];
+let logFilter = 'all';
+function addLog(entry) { LOG.push({ t: clock(), who: ROLES[root.dataset.role].name, ...entry }); }
+function renderLog() {
+  const rows = LOG.slice().reverse().filter(r => logFilter === 'all' || (logFilter === 'human' && !r.ai) || (logFilter === 'override' && r.kind === 'override'));
+  $('#log-table tbody').innerHTML = rows.map(r => `<tr>
+    <td class="mono" style="padding-left:var(--pad)">${r.t}</td>
+    <td><span class="log-actor"><span class="avatar${r.ai ? ' ai' : ''}">${r.ai ? 'N' : esc(r.who.replace(/^Dr\. /, '').split(/[ ,]/).filter(Boolean).map(w => w[0]).join('').slice(0, 2))}</span>${esc(r.who)}</span></td>
+    <td>${r.kind === 'override' ? '<span class="sev warn">Override</span> ' : r.kind === 'accept' ? '<span class="sev ok">Accepted</span> ' : r.kind === 'undo' ? '<span class="sev neutral">Undone</span> ' : ''}${esc(r.what)}${r.reason ? `<div class="faint" style="font-size:.85rem">Reason: ${esc(r.reason)}</div>` : ''}</td>
+    <td class="faint" style="font-size:.85rem">${esc(r.basis || '—')}</td></tr>`).join('');
+  $('#log-table').hidden = rows.length === 0;
+  $('#log-empty').hidden = rows.length !== 0;
+}
+$('#log-filter').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; logFilter = b.dataset.v; setSeg($('#log-filter'), logFilter); renderLog(); });
+$('#export-log').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ patient: 'MRN 88472-19 (fictional)', exported: new Date().toISOString(), entries: LOG }, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'nomi-decision-log.json' });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+  toast('Decision log exported.');
+});
+
+/* ============================================================
+   TOASTS (with Undo)
+   ============================================================ */
+function toast(msg, undo) {
+  const el = document.createElement('div'); el.className = 'toast';
+  el.innerHTML = `${icon('check')}<p>${esc(msg)}</p>${undo ? '<button>Undo</button>' : ''}`;
+  if (undo) el.querySelector('button').addEventListener('click', () => { undo(); el.remove(); });
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), undo ? 8000 : 3500);
+}
+
+/* ============================================================
+   DECISIONS — Accept and Override are symmetric: 1 tap each,
+   both undoable, both logged, reason is optional for both.
+   ============================================================ */
+const STATE = {};
+const REASONS = {
+  accepted: ['Ordered', 'Will do later today', 'Discussed with patient'],
+  overridden: ['Already done', 'Context not in chart', 'Patient preference', 'Disagree with evidence'],
+};
+function decideButtons(id) {
+  return `<div class="decide"><button class="btn accept" data-act="accepted" data-id="${id}">${icon('check')}Accept</button><button class="btn override" data-act="overridden" data-id="${id}">${icon('x')}Override</button></div>`;
+}
+function decidedBlock(id) {
+  const s = STATE[id];
+  const ok = s.state === 'accepted';
+  return `<div class="rec-done">
+    <div class="state" style="color:var(--${ok ? 'ok' : 'warn'})">${icon(ok ? 'check' : 'x')}${ok ? 'Accepted' : 'Overridden'} <small>· ${esc(s.by)} · ${s.t}</small></div>
+    <div class="faint" style="font-size:.8rem">Add a reason (optional)</div>
+    <div class="chips">${REASONS[s.state].map(r => `<button class="chip" data-reason="${esc(r)}" data-id="${id}" aria-pressed="${s.reason === r}">${esc(r)}</button>`).join('')}</div>
+    <button class="btn ghost sm" data-undo="${id}" style="justify-self:start">${icon('undo')}Undo</button>
+  </div>`;
+}
+function itemTitle(id) { return id === 'assess' ? 'Leading assessment: acute decompensated HF' : RECS.find(r => r.id === id).title; }
+function paintDecision(id) {
+  const host = id === 'assess' ? $('#assess-decide') : $(`#${id} .rec-act`);
+  const s = STATE[id];
+  host.innerHTML = s ? decidedBlock(id) : decideButtons(id);
+  if (id !== 'assess') $('#' + id).dataset.state = s ? s.state : 'pending';
+  const pending = RECS.filter(r => !STATE[r.id]).length;
+  $('#rec-count').textContent = pending ? `${pending} awaiting your decision` : 'All decided';
+}
+function decide(id, act) {
+  STATE[id] = { state: act, by: ROLES[root.dataset.role].name, t: clock() };
+  addLog({ kind: act === 'accepted' ? 'accept' : 'override', what: itemTitle(id), basis: 'Sources as shown at decision time', id });
+  paintDecision(id);
+  $(`[data-undo="${id}"]`)?.focus();
+  toast(`${act === 'accepted' ? 'Accepted' : 'Overridden'}: ${itemTitle(id)}. Saved to log.`, () => undoDecision(id));
+}
+function undoDecision(id) {
+  if (!STATE[id]) return;
+  delete STATE[id];
+  addLog({ kind: 'undo', what: itemTitle(id), basis: '—' });
+  paintDecision(id);
+  $(`[data-act="accepted"][data-id="${id}"]`)?.focus();
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if (a) decide(a.dataset.id, a.dataset.act);
+  const u = e.target.closest('[data-undo]'); if (u) undoDecision(u.dataset.undo);
+  const r = e.target.closest('[data-reason]');
+  if (r) {
+    const s = STATE[r.dataset.id]; s.reason = s.reason === r.dataset.reason ? null : r.dataset.reason;
+    const entry = [...LOG].reverse().find(l => l.id === r.dataset.id && (l.kind === 'accept' || l.kind === 'override'));
+    if (entry) entry.reason = s.reason;
+    $$(`[data-reason][data-id="${r.dataset.id}"]`).forEach(c => c.setAttribute('aria-pressed', c.dataset.reason === s.reason));
+  }
+});
+
+/* ============================================================
+   RENDER OVERVIEW
+   ============================================================ */
+$('#recs').innerHTML = RECS.map(r => `<article class="rec${r.caution ? ' caution' : ''}" id="${r.id}" data-state="pending" tabindex="-1">
+  <div>
+    <div class="rt">${r.caution ? '<span class="sev warn">' + icon('alert') + 'Caution</span> ' : ''}${esc(r.title)}</div>
+    <div class="rd">${esc(r.detail)}</div>
+    <div class="meta">${strength(r.level, r.lbl)}<span class="faint" style="font-size:.8rem">·</span>${r.cites.map(citeBtn).join('')}</div>
+  </div>
+  <div class="rec-act"></div>
+</article>`).join('');
+RECS.forEach(r => paintDecision(r.id));
+paintDecision('assess');
+
+$('#ddx').innerHTML = DDX.map((d, i) => `<div class="ddx" data-open="false">
+  <button aria-expanded="false" aria-controls="ddx-p${i}">
+    <span class="rank">${i + 2}</span>
+    <span><span class="dn">${esc(d.name)}</span><br><span class="ds">${esc(d.sub)}</span></span>
+    ${strength(d.level, d.lbl)}
+    <svg class="ic chev" aria-hidden="true"><use href="#i-chev"/></svg>
+  </button>
+  <div class="panel" id="ddx-p${i}">
+    <div class="assess-grid" style="margin-top:0">
+      <div class="why for"><h3>${icon('check')}For</h3><ul>${d.pro.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div class="why against"><h3>${icon('question')}Against</h3><ul>${d.con.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+    </div>
+    <p style="margin-top:.6rem;font-size:.93rem"><b>Next if needed:</b> ${esc(d.next)}</p>
+    <div class="cites">${d.cites.map(citeBtn).join('')}</div>
+  </div>
+</div>`).join('');
+$$('.ddx > button').forEach(b => b.addEventListener('click', () => { const row = b.parentElement, o = row.dataset.open !== 'true'; row.dataset.open = o; b.setAttribute('aria-expanded', o); }));
+
+$('#vitals').innerHTML = VITALS.map(v => `<div class="vital${v.watch ? ' watch' : ''}">
+  <div class="k"><span>${esc(v.k)}</span>${v.watch ? '<span class="sev warn" style="font-size:.65rem;padding:0 .35rem">Watch</span>' : ''}</div>
+  <div class="v num">${esc(v.v)}</div><div class="u">${esc(v.u)}</div>${spark(v.trend)}</div>`).join('');
+
+$('#labs tbody').innerHTML = LABS.map(l => `<tr>
+  <td><button class="row-btn" data-lab="${l.id}">${l.plain ? `<span class="term" data-plain="${esc(l.plain)}">${esc(l.name)}</span>` : esc(l.name)}</button></td>
+  <td class="val ${l.flag === 'H' ? 'hi' : l.flag === 'L' ? 'lo' : ''}">${esc(l.val)}${l.flag ? `<span class="flag">${l.flag === 'H' ? '▲ High' : '▼ Low'}</span>` : ''}<span class="unit">${esc(l.unit)}</span></td>
+  <td class="faint hide-sm">${esc(l.ref)}</td>
+  <td>${spark(l.trend, 'spark trend-mini', 56, 18)}</td></tr>`).join('');
+$$('[data-lab]').forEach(b => b.addEventListener('click', () => { const l = LABS.find(x => x.id === b.dataset.lab); openSource(l.id, `${l.name} ${l.trend.join(' → ')} ${l.unit} over 48 h.`, b); }));
+
+$('#meds tbody').innerHTML = MEDS.map(([n, d, t, k]) => `<tr><td style="font-weight:600">${esc(n)}${k ? ' <span class="sev warn" style="font-size:.65rem;padding:0 .35rem">K⁺</span>' : ''}</td><td class="muted">${esc(d)}</td><td class="mono">${t}</td></tr>`).join('');
+
+const wel = $('#welcome');
+if (store.get('welcomed', false)) wel.remove();
+else $('#welcome-x').addEventListener('click', () => { store.set('welcomed', true); wel.remove(); $('#h-overview').focus(); });
+
+/* Sync micro-interaction */
+$('#sync-btn').addEventListener('click', () => {
+  const ic = $('#sync-ic'); ic.classList.add('spin'); $('#sync-text').textContent = 'Syncing chart…';
+  setTimeout(() => { ic.classList.remove('spin'); $('#sync-text').textContent = 'Chart synced just now'; toast('Chart is up to date. No new results.'); }, 900);
+});
+
+/* ============================================================
+   HANDOFF
+   ============================================================ */
+$('#sev-scale').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#sev-scale button').forEach(x => { const on = x === b; x.setAttribute('aria-checked', on); x.setAttribute('aria-pressed', on); });
+  addLog({ what: `Illness severity set to ${b.dataset.v}`, basis: 'I-PASS handoff' });
+});
+$('#edit-handoff').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', on);
+  e.currentTarget.innerHTML = on ? `${icon('check')}Done editing` : `${icon('edit')}Edit`;
+  $$('#view-handoff .editable').forEach(p => { p.contentEditable = on; });
+  if (on) $('#view-handoff .editable').focus(); else { addLog({ what: 'Edited NOMI-drafted handoff summary', basis: 'Human edit' }); toast('Handoff edits saved to the log.'); }
+});
+$('#receive-btn').addEventListener('click', () => {
+  addLog({ kind: 'accept', what: 'Handoff received and read back', basis: 'I-PASS handoff v4' });
+  $('#receive-wrap').innerHTML = `<div class="callout ok" style="flex:1">${icon('check')}<div><b>Handoff received</b> by ${esc(ROLES[root.dataset.role].name)} at ${clock()}. Recorded in the decision log.</div></div>`;
+});
+
+/* ============================================================
+   ASK NOMI — staged reasoning, sourced answers
+   ============================================================ */
+const QA = [
+  { q: 'Summarize the last 24 hours',
+    steps: ['Reading 14 chart records', 'Comparing with yesterday', 'Writing summary'],
+    a: `<p>Robert is improving on IV furosemide: <b>net −1.2 L</b>, weight 84.6 → 84.1 kg, breathing rate 24 → 22, SpO₂ 93 → 94% on 2 L. ${citeBtn(['vit-weight', 'Weight trend 85.0 → 84.6 → 84.1 kg.', 'Vitals · 05:50'])}</p>
+        <p>Two things moved the wrong way:</p>
+        <ul><li><b>Potassium 4.9 → 5.1 mmol/L</b> while on spironolactone and lisinopril. ${citeBtn(['lab-k', 'Potassium 4.6 → 4.9 → 5.1 mmol/L.', 'Lab · 06:12'])}</li>
+        <li><b>Creatinine 1.6 → 1.7 mg/dL</b>. Still below the AKI threshold. ${citeBtn(['kdigoaki2012', 'AKI: creatinine rise ≥0.3 mg/dL within 48 h.', 'KDIGO AKI'])}</li></ul>
+        <p>Still outstanding: the echocardiogram.</p>` },
+  { q: 'Is it safe to continue spironolactone today?',
+    steps: ['Reading potassium, creatinine, medicine list', 'Checking AHA/ACC 2022 MRA criteria', 'Checking hyperkalemia literature'],
+    a: `<p><b>NOMI suggests reviewing it before the 09:00 dose.</b> Potassium is <b>5.1 mmol/L and rising</b>. The guideline criteria for MRA use include K⁺ below 5.0 mEq/L and eGFR above 30. eGFR is 42, so the potassium is the concern. ${citeBtn(['aha2022', 'MRA eligibility: eGFR >30 mL/min/1.73 m² and K⁺ <5.0 mEq/L, with close monitoring (Class 1, LOE A, in HFrEF).', 'AHA/ACC 2022'])}</p>
+        <p>He is also on lisinopril. Real-world data after RALES showed more hyperkalemia admissions when MRAs were combined with ACE inhibitors outside trial-like monitoring. ${citeBtn(['juurlink2004', 'Hyperkalemia-associated hospitalizations and deaths rose after spironolactone use increased post-RALES.', 'Juurlink 2004'])}</p>
+        <p class="faint"><b>NOMI doesn't know:</b> whether he uses salt substitutes or potassium supplements at home. His ejection fraction is also unknown, and the MRA evidence base is strongest in HFrEF. This decision is the prescriber's.</p>` },
+  { q: 'Should we start an SGLT2 inhibitor?',
+    steps: ['Checking ejection fraction (not found)', 'Reading AHA/ACC 2022 and ESC 2023', 'Reading EMPEROR-Preserved, DELIVER'],
+    a: `<p><b>It depends on the echo, which isn't done yet.</b></p>
+        <ul><li>If <b>HFrEF</b> (EF ≤40%): SGLT2 inhibitors are a Class 1 recommendation. ${citeBtn(['aha2022', 'SGLT2i recommended in symptomatic chronic HFrEF to reduce HF hospitalization and CV death (Class 1, LOE A).', 'AHA/ACC 2022'])}</li>
+        <li>If <b>HFmrEF or HFpEF</b> (EF >40%): Class 2a in the 2022 AHA/ACC guideline. The 2023 ESC update gives it Class I. ${citeBtn(['esc2023', 'SGLT2i (dapagliflozin or empagliflozin) recommended in HFmrEF and HFpEF to reduce HF hospitalization or CV death (Class I, LOE A).', 'ESC 2023'])}</li></ul>
+        <p>Both large trials in EF >40% showed fewer of the combined outcome of cardiovascular death or worsening heart failure. ${citeBtn(['emperor2021', 'Empagliflozin reduced the composite of CV death or HF hospitalization vs. placebo (HR 0.79).', 'EMPEROR-Preserved'])} ${citeBtn(['deliver2022', 'Dapagliflozin reduced the composite of worsening HF or CV death vs. placebo (HR 0.82).', 'DELIVER'])}</p>
+        <p class="faint">eGFR 42 is within the range studied in these trials. Check current labeling for eGFR limits.</p>` },
+  { q: 'Explain the plan to the family in plain words',
+    steps: ['Reading today’s plan', 'Removing jargon', 'Checking reading level'],
+    a: `<p>"Robert's heart is having trouble keeping up, so fluid has built up in his lungs. That's why he's been short of breath. We're giving him water pills through his IV to remove the extra fluid, and it's working. He's breathing easier and his weight is coming down.</p>
+        <p>Today we're doing an ultrasound of his heart to see how well it pumps. We're also watching a blood mineral called potassium closely, and we may adjust one of his medicines because of it."</p>
+        <p class="faint">Draft only. Review it before you share it. Approved summaries appear in the Family view.</p>` },
+];
+function renderSuggest() {
+  $('#suggest').innerHTML = QA.map((x, i) => `<button data-q="${i}">${esc(x.q)}</button>`).join('');
+}
+renderSuggest();
+$('#suggest').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) ask(QA[+b.dataset.q]); });
+$('#composer').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('#ask-input').value.trim(); if (!v) return;
+  $('#ask-input').value = '';
+  const match = QA.find(x => x.q.toLowerCase().split(' ').filter(w => w.length > 4).some(w => v.toLowerCase().includes(w.replace(/[?]/g, ''))));
+  ask(match ? { ...match, q: v } : { q: v, steps: ['Reading chart', 'Searching evidence index'], a: `<p>In this prototype NOMI only has fully sourced answers for the suggested questions. A real NOMI answer would cite every claim like the others here. If it found no good evidence, it would say so instead of guessing.</p>` });
+});
+let asking = false;
+async function ask(item) {
+  if (asking) return; asking = true;
+  $('#ask-empty')?.remove();
+  const th = $('#thread');
+  th.insertAdjacentHTML('beforeend', `<div class="bubble-q">${esc(item.q)}</div>`);
+  const ans = document.createElement('div'); ans.className = 'answer';
+  ans.innerHTML = `<div class="who">${icon('spark')}NOMI is working</div><ol class="steps">${item.steps.map(s => `<li>${icon('refresh')}${esc(s)}</li>`).join('')}</ol><div class="skel" style="margin-top:.9rem;width:80%"></div><div class="skel" style="margin-top:.5rem;width:60%"></div>`;
+  th.appendChild(ans);
+  ans.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const lis = $$('.steps li', ans);
+  for (const li of lis) {
+    li.className = 'doing'; li.querySelector('svg').classList.add('spin');
+    await new Promise(r => setTimeout(r, 480));
+    li.className = 'done'; li.querySelector('svg').classList.remove('spin'); li.querySelector('use').setAttribute('href', '#i-check');
+  }
+  ans.innerHTML = `<div class="who">${icon('spark')}NOMI · ${clock()}</div>
+    <details style="margin-bottom:.6rem"><summary class="faint" style="cursor:pointer;font-size:.85rem">What NOMI did (${item.steps.length} steps)</summary><ol class="steps" style="margin-top:.4rem">${item.steps.map(s => `<li class="done">${icon('check')}${esc(s)}</li>`).join('')}</ol></details>
+    ${item.a}
+    <div class="fb"><span class="faint" style="font-size:.85rem">Was this right?</span>
+      <button class="btn sm" data-fb="yes">${icon('check')}Useful</button>
+      <button class="btn sm" data-fb="no">${icon('x')}Not right</button></div>`;
+  addLog({ ai: true, who: 'NOMI', what: `Answered: "${item.q}"`, basis: 'NOMI-3 · sources cited inline' });
+  asking = false;
+}
+$('#thread').addEventListener('click', e => {
+  const b = e.target.closest('[data-fb]'); if (!b) return;
+  const fb = b.closest('.fb');
+  fb.innerHTML = `<span class="faint" style="font-size:.85rem">${icon('check')} Thanks. Feedback recorded${b.dataset.fb === 'no' ? ' and flagged for clinical review' : ''}.</span>`;
+  addLog({ what: b.dataset.fb === 'no' ? 'Flagged a NOMI answer as not right' : 'Marked a NOMI answer as useful', basis: 'Answer feedback' });
+});
+
+/* ============================================================
+   EVIDENCE MAP
+   ============================================================ */
+const NODE_STYLE = {
+  patient: { fill: 'var(--primary)', stroke: 'var(--primary)', label: 'Patient' },
+  finding: { fill: 'var(--surface)', stroke: 'var(--text-3)', label: 'Patient data' },
+  condition: { fill: 'var(--primary-soft)', stroke: 'var(--accent-ink)', label: 'Condition' },
+  med: { fill: 'var(--warn-bg)', stroke: 'var(--warn)', label: 'Medicine' },
+  source: { fill: 'var(--ok-bg)', stroke: 'var(--ok)', label: 'Evidence', square: true },
+};
+const NODES = [
+  { id: 'pt', type: 'patient', label: 'Robert Ellis', x: 410, y: 250, r: 30, info: '68 y, CAD, CKD stage 3. Admitted with dyspnea.' },
+  { id: 'bnp', type: 'finding', label: 'BNP 832', x: 200, y: 120, info: 'Natriuretic peptide well above the 100 pg/mL diagnostic cut-off.', src: 'lab-bnp' },
+  { id: 'dysp', type: 'finding', label: 'Dyspnea + crackles', x: 150, y: 250, info: 'Orthopnea, bibasilar crackles, raised JVP on exam.', src: 'note-exam' },
+  { id: 'wt', type: 'finding', label: 'Weight +2.1 kg', x: 210, y: 380, info: '84.1 kg vs. 82.0 kg dry weight.', src: 'vit-weight' },
+  { id: 'trop', type: 'finding', label: 'Troponin 0.04 (flat)', x: 400, y: 70, info: 'Mildly raised, unchanged across three draws.', src: 'lab-trop' },
+  { id: 'k', type: 'finding', label: 'Potassium 5.1', x: 420, y: 440, info: 'Rising over 48 h: 4.6 → 4.9 → 5.1 mmol/L.', src: 'lab-k' },
+  { id: 'ckd', type: 'condition', label: 'CKD stage 3', x: 280, y: 300, info: 'eGFR 42. Can raise BNP and troponin, and raises hyperkalemia risk.' },
+  { id: 'adhf', type: 'condition', label: 'Acute decompensated HF', x: 590, y: 170, info: 'Leading assessment. Strong support.' },
+  { id: 'acs', type: 'condition', label: 'ACS (less likely)', x: 600, y: 60, info: 'Considered. Limited support because troponin is flat.' },
+  { id: 'furo', type: 'med', label: 'Furosemide IV', x: 690, y: 290, info: '40 mg IV twice daily. Net −1.2 L / 24 h.' },
+  { id: 'spiro', type: 'med', label: 'Spironolactone', x: 560, y: 420, info: '25 mg daily. Flagged: K⁺ ≥ 5.0.' },
+  { id: 'lis', type: 'med', label: 'Lisinopril', x: 690, y: 450, info: '10 mg daily. Also raises potassium.' },
+  { id: 'aha', type: 'source', label: 'AHA/ACC 2022', x: 760, y: 170, info: 'HF management guideline.', src: 'aha2022' },
+  { id: 'dose', type: 'source', label: 'DOSE 2011', x: 780, y: 370, info: 'Diuretic strategy RCT.', src: 'dose2011' },
+  { id: 'mai', type: 'source', label: 'Maisel 2002', x: 70, y: 110, info: 'BNP diagnostic accuracy.', src: 'maisel2002' },
+  { id: 'udmi', type: 'source', label: 'UDMI 2018', x: 760, y: 60, info: 'Definition of myocardial infarction.', src: 'udmi2018' },
+  { id: 'juu', type: 'source', label: 'Juurlink 2004', x: 300, y: 470, info: 'Hyperkalemia after RALES.', src: 'juurlink2004' },
+];
+const EDGES = [
+  ['pt', 'bnp', 'has'], ['pt', 'dysp', 'has'], ['pt', 'wt', 'has'], ['pt', 'trop', 'has'], ['pt', 'k', 'has'], ['pt', 'ckd', 'has history of'],
+  ['bnp', 'adhf', 'supports'], ['dysp', 'adhf', 'supports'], ['wt', 'adhf', 'supports'], ['mai', 'bnp', 'validates cut-off for'],
+  ['trop', 'acs', 'raises question of'], ['udmi', 'acs', 'flat troponin argues against'], ['ckd', 'trop', 'can chronically raise'], ['ckd', 'bnp', 'can raise'],
+  ['adhf', 'furo', 'treated with'], ['aha', 'furo', 'recommends (Class 1)'], ['dose', 'furo', 'informs dosing of'],
+  ['spiro', 'k', 'raises'], ['lis', 'k', 'raises'], ['ckd', 'k', 'raises risk of'], ['aha', 'spiro', 'requires K⁺ < 5.0 for'], ['juu', 'spiro', 'warns about'],
+];
+const svgNS = 'http://www.w3.org/2000/svg';
+const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
+function buildGraph() {
+  const g = $('#graph'); g.innerHTML = '';
+  const eg = document.createElementNS(svgNS, 'g');
+  EDGES.forEach(([a, b], i) => { const l = document.createElementNS(svgNS, 'line'); Object.entries({ x1: byId[a].x, y1: byId[a].y, x2: byId[b].x, y2: byId[b].y, class: 'edge', 'data-i': i }).forEach(([k, v]) => l.setAttribute(k, v)); eg.appendChild(l); });
+  g.appendChild(eg);
+  NODES.forEach(n => {
+    const st = NODE_STYLE[n.type], gg = document.createElementNS(svgNS, 'g');
+    gg.setAttribute('class', 'node'); gg.setAttribute('tabindex', '0'); gg.setAttribute('role', 'button');
+    gg.setAttribute('aria-label', `${st.label}: ${n.label}`); gg.dataset.id = n.id; gg.dataset.type = n.type;
+    const r = n.r || 13;
+    const shape = document.createElementNS(svgNS, st.square ? 'rect' : 'circle');
+    if (st.square) Object.entries({ x: n.x - 11, y: n.y - 11, width: 22, height: 22, rx: 5 }).forEach(([k, v]) => shape.setAttribute(k, v));
+    else Object.entries({ cx: n.x, cy: n.y, r }).forEach(([k, v]) => shape.setAttribute(k, v));
+    shape.style.fill = st.fill; shape.style.stroke = st.stroke;
+    const t = document.createElementNS(svgNS, 'text');
+    t.setAttribute('x', n.x); t.setAttribute('y', n.y + r + 17); t.setAttribute('text-anchor', 'middle'); t.textContent = n.label;
+    if (n.type === 'patient') { t.setAttribute('y', n.y + r + 19); }
+    gg.append(shape, t); g.appendChild(gg);
+  });
+  $('#legend').innerHTML = Object.values(NODE_STYLE).map(s => `<span><i class="lg${s.square ? ' sq' : ''}" style="background:${s.fill};border-color:${s.stroke}"></i>${s.label}</span>`).join('');
+}
+buildGraph();
+function selectNode(id) {
+  const g = $('#graph'), n = byId[id];
+  g.classList.add('dim');
+  $$('.node', g).forEach(x => x.classList.remove('sel', 'near'));
+  $$('.edge', g).forEach(x => x.classList.remove('hl'));
+  const near = new Set([id]);
+  const links = [];
+  EDGES.forEach(([a, b, rel], i) => { if (a === id || b === id) { near.add(a); near.add(b); $(`.edge[data-i="${i}"]`, g).classList.add('hl'); links.push([a, b, rel]); } });
+  near.forEach(x => $(`.node[data-id="${x}"]`, g).classList.add('near'));
+  $(`.node[data-id="${id}"]`, g).classList.add('sel');
+  const st = NODE_STYLE[n.type];
+  $('#map-detail').innerHTML = `<span class="eyebrow">${st.label}</span>
+    <h2 style="font-size:1.15rem;margin:.2rem 0 .4rem">${esc(n.label)}</h2>
+    <p class="muted" style="font-size:.95rem">${esc(n.info)}</p>
+    ${n.src ? `<div class="cites">${citeBtn([n.src, n.info, SOURCES[n.src].chart ? 'Open chart record' : 'Open source'])}</div>` : ''}
+    <h3 class="eyebrow" style="margin-top:1rem">Connections (${links.length})</h3>
+    <ul class="conn">${links.map(([a, b, rel]) => `<li><b>${esc(byId[a].label)}</b> <span class="muted">${esc(rel)}</span> <b>${esc(byId[b].label)}</b></li>`).join('')}</ul>
+    <button class="btn ghost sm" id="map-clear" style="margin-top:.75rem">${icon('x')}Clear selection</button>`;
+  $('#map-clear').addEventListener('click', clearMap);
+}
+function clearMap() {
+  const g = $('#graph'); g.classList.remove('dim'); $$('.node', g).forEach(x => x.classList.remove('sel', 'near')); $$('.edge', g).forEach(x => x.classList.remove('hl'));
+  $('#map-detail').innerHTML = `<div class="empty" style="padding:1.5rem .5rem">${icon('net')}<p><b>Select a node</b></p><p class="faint" style="font-size:.9rem">Try <b>Potassium 5.1</b> to see why spironolactone is flagged.</p></div>`;
+}
+$('#graph').addEventListener('click', e => { const n = e.target.closest('.node'); if (n) selectNode(n.dataset.id); });
+$('#graph').addEventListener('keydown', e => { const n = e.target.closest('.node'); if (n && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectNode(n.dataset.id); } });
+$('#map-filter').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; setSeg($('#map-filter'), b.dataset.v);
+  const v = b.dataset.v;
+  $$('#graph .node').forEach(n => { const show = v === 'all' || n.dataset.type === v || n.dataset.type === 'patient' || (v === 'finding' && n.dataset.type === 'condition'); n.style.opacity = show ? '' : '.12'; n.setAttribute('tabindex', show ? '0' : '-1'); });
+});
+
+/* ============================================================
+   PATIENTS
+   ============================================================ */
+const SEV_LABEL = { stable: 'Stable', watcher: 'Watcher', unstable: 'Unstable' };
+$('#pt-table tbody').innerHTML = PATIENTS.map(p => `<tr class="${p.open ? 'clickable' : ''}" ${p.open ? 'data-open-pt' : ''}>
+  <td class="mono" style="padding-left:var(--pad)">${p.bed}</td>
+  <td>${p.open ? `<button class="row-btn" data-open-pt>${esc(p.name)}</button>` : `<span style="font-weight:600">${esc(p.name)}</span>`}<div class="faint" style="font-size:.82rem">${p.age}</div></td>
+  <td class="muted">${esc(p.reason)}</td>
+  <td><span class="sev-pill ${p.sev}">${SEV_LABEL[p.sev]}</span></td>
+  <td>${p.flag === '—' ? '<span class="faint">None</span>' : `<span class="sev ${p.sev === 'unstable' ? 'crit' : 'warn'}">${icon('alert')}${esc(p.flag)}</span>`}</td></tr>`).join('');
+document.addEventListener('click', e => { if (e.target.closest('[data-open-pt]')) setView('overview'); });
+
+/* ============================================================
+   KEYBOARD
+   ============================================================ */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawer(); pop.classList.remove('open'); popBtn.setAttribute('aria-expanded', false); return; }
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+  if (typing || e.metaKey || e.ctrlKey || e.altKey || root.dataset.role === 'family') return;
+  if (e.key >= '1' && e.key <= '6') { setView(VIEWS[+e.key - 1]); }
+  else if (e.key === '/') { e.preventDefault(); setView('ask', true); $('#ask-input').focus(); }
+  else if (e.key === '?') { $('#help').showModal(); }
+});
+$('#help-btn').addEventListener('click', () => $('#help').showModal());
+
+/* Init */
+setRole(store.get('role', 'physician'), true);
 </script>
 </body>
 </html>
