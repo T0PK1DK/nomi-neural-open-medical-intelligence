@@ -50,6 +50,7 @@ interface State {
   panelOpen: boolean;
   navOpen: boolean;
   auditQuery: string;
+  lastExport: string | null;
 }
 
 const VIEWS: { id: ViewId; label: string }[] = [
@@ -202,7 +203,8 @@ export function mount(root: HTMLElement): void {
     graphSelected: null,
     panelOpen: false,
     navOpen: false,
-    auditQuery: ""
+    auditQuery: "",
+    lastExport: null
   };
 
   let focusAfterRender: "main" | "roster" | "audit" | "palette" | null = null;
@@ -218,6 +220,7 @@ export function mount(root: HTMLElement): void {
     state.patientId = id;
     state.chat = [];
     state.graphSelected = null;
+    state.lastExport = null;
     log("context", `Focused ${id}`);
     writeHash(state.view, state.patientId);
     render();
@@ -426,6 +429,11 @@ export function mount(root: HTMLElement): void {
             <div class="chips">${p.fhir.map((c) => `<span class="chip">${c.resourceType} · ${escapeHtml(c.label)}</span>`).join("")}</div>
             <div class="btn-row">
               <button class="btn" type="button" data-fhir-export>Download FHIR bundle</button>
+              ${
+                state.lastExport
+                  ? `<span class="badge badge-high">Saved ${escapeHtml(state.lastExport)}</span>`
+                  : ""
+              }
             </div>
           </div>
           ${
@@ -750,7 +758,8 @@ export function mount(root: HTMLElement): void {
     root.querySelector<HTMLButtonElement>("[data-fhir-export]")?.addEventListener("click", () => {
       const current = patient();
       downloadFhir(current);
-      log("export", `Downloaded FHIR bundle ${fhirFilename(current.id)}`);
+      state.lastExport = fhirFilename(current.id);
+      log("export", `Downloaded FHIR bundle ${state.lastExport}`);
       render();
     });
     root.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((btn) => {
