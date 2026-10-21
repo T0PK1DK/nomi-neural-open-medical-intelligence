@@ -25,8 +25,9 @@ describe("Bayesian ranker", () => {
     const result = rankDiagnoses(DIAGNOSES, p.findings, { thorough: true });
     expect(result.mostLikely?.id).toBe("adhf");
     expect(result.mostLikely!.posterior).toBeGreaterThan(0.4);
-    expect(result.confidence).not.toBe("abstain");
+    expect(result.confidence).toBe("high");
     expect(result.worldsEvaluated).toBeGreaterThan(100);
+    expect(result.mostLikely!.stability).toBeGreaterThan(0.6);
   });
 
   it("keeps PE as a cannot-miss on the travel-dyspnea case", () => {

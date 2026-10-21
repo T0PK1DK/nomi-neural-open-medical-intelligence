@@ -142,7 +142,19 @@ function sparkline(values: number[], invert = false): string {
 }
 
 function actionLabel(action: InsightAction | AlertAction): string {
-  return action;
+  const labels: Record<string, string> = {
+    pending: "pending",
+    accepted: "accepted",
+    overridden: "overridden",
+    deferred: "deferred",
+    open: "open",
+    acknowledged: "acknowledged",
+    escalated: "escalated",
+    accept: "accepted",
+    override: "overridden",
+    defer: "deferred"
+  };
+  return labels[action] ?? action;
 }
 
 export function mount(root: HTMLElement): void {
@@ -307,9 +319,9 @@ export function mount(root: HTMLElement): void {
               <div class="vital"><div class="val">${news.value}</div><div class="lbl">${news.name.split(" ")[0]}</div></div>
             </div>
             <div class="btn-row">
-              <button class="btn" data-act="accept" data-id="${insightKey}">Accept draft</button>
-              <button class="btn-ghost" data-act="defer" data-id="${insightKey}">Defer</button>
-              <button class="btn-danger" data-act="override" data-id="${insightKey}">Override</button>
+              <button class="btn" data-act="accepted" data-id="${insightKey}">Accept draft</button>
+              <button class="btn-ghost" data-act="deferred" data-id="${insightKey}">Defer</button>
+              <button class="btn-danger" data-act="overridden" data-id="${insightKey}">Override</button>
               <span class="badge badge-cyan">Status: ${actionLabel(status)}</span>
             </div>
             <p class="meta" style="margin-top:8px">Worlds evaluated: ${result.worldsEvaluated}. Draft only — not an order.</p>
@@ -417,6 +429,7 @@ export function mount(root: HTMLElement): void {
     const laid: LaidOutNode[] = layoutGraph(nodes, edges, 720, 400, 220);
     const selected = state.graphSelected;
     const neighbor = selected ? new Set(neighborsOf(selected, edges)) : null;
+    const labelOf = (id: string) => laid.find((n) => n.id === id)?.label ?? id;
     const lines = edges
       .map((e) => {
         const a = laid.find((n) => n.id === e.from);
@@ -430,16 +443,19 @@ export function mount(root: HTMLElement): void {
       .map((n) => {
         const color =
           n.kind === "diagnosis" ? "#22d3ee" : n.kind === "finding" ? "#34d399" : n.kind === "drug" ? "#fbbf24" : n.kind === "trial" ? "#c084fc" : "#94a3b8";
+        const showLabel = !selected || n.id === selected || Boolean(neighbor?.has(n.id));
         const dim = selected && n.id !== selected && !neighbor?.has(n.id) ? 0.25 : 1;
         return `<g data-node="${escapeHtml(n.id)}" opacity="${dim}" style="cursor:pointer">
           <circle cx="${n.x}" cy="${n.y}" r="8" fill="${color}"></circle>
-          <text class="node-label" x="${n.x + 10}" y="${n.y + 4}">${escapeHtml(n.label)}</text>
+          ${showLabel ? `<text class="node-label" x="${n.x + 10}" y="${n.y + 4}">${escapeHtml(n.label)}</text>` : ""}
         </g>`;
       })
       .join("");
     const detail = selected
-      ? `<p class="meta">Selected <strong>${escapeHtml(selected)}</strong> · neighbors: ${escapeHtml([...neighborsOf(selected, edges)].join(", ") || "none")}</p>`
-      : `<p class="meta">Click a node. Layout used 220 cooling ticks (quality over speed).</p>`;
+      ? `<p class="meta">Selected <strong>${escapeHtml(labelOf(selected))}</strong> · neighbors: ${escapeHtml(
+          neighborsOf(selected, edges).map(labelOf).join(", ") || "none"
+        )}</p>`
+      : `<p class="meta">Click a node to reveal neighbor labels. Layout used 220 cooling ticks (quality over speed).</p>`;
     return `<div class="card"><h3>Patient data ↔ diagnoses ↔ sources</h3>
       <div class="graph-wrap"><svg viewBox="0 0 720 400">${lines}${circles}</svg></div>
       ${detail}

@@ -52,14 +52,33 @@ function findingLabel(findings: Finding[], id: string): string {
  * Slower than a greedy score, but reports how often the top diagnosis survives
  * missing or contradicted data. n is small (typically ≤ 12).
  */
+function bitCount(value: number): number {
+  let n = value;
+  let count = 0;
+  while (n) {
+    n &= n - 1;
+    count += 1;
+  }
+  return count;
+}
+
+export function observedMask(findings: Finding[]): number {
+  const known = findings.filter((f) => f.polarity !== "unknown");
+  let mask = 0;
+  known.forEach((f, i) => {
+    if (f.polarity === "present") mask |= 1 << i;
+  });
+  return mask;
+}
+
 export function enumerateWorlds(
   models: DiagnosisModel[],
   findings: Finding[]
-): { topId: string; logOdds: number[] }[] {
+): { topId: string; logOdds: number[]; mask: number }[] {
   const known = findings.filter((f) => f.polarity !== "unknown");
   const n = known.length;
   const worlds = 1 << n;
-  const out: { topId: string; logOdds: number[] }[] = [];
+  const out: { topId: string; logOdds: number[]; mask: number }[] = [];
 
   for (let mask = 0; mask < worlds; mask++) {
     const variant = findings.map((f) => {
@@ -75,7 +94,7 @@ export function enumerateWorlds(
     for (let i = 1; i < scores.length; i++) {
       if (scores[i] > scores[best]) best = i;
     }
-    out.push({ topId: models[best].id, logOdds: scores });
+    out.push({ topId: models[best].id, logOdds: scores, mask });
   }
   return out;
 }
@@ -103,6 +122,7 @@ export function rankDiagnoses(
   const thorough = options.thorough !== false && known.length <= 14;
   const worlds = thorough ? enumerateWorlds(models, findings) : [];
   const worldCount = thorough ? worlds.length : 1;
+  const observed = observedMask(findings);
 
   const rankedBase = models.map((model) => {
     const logOdds = posteriorLogOdds(model, findings);
@@ -125,8 +145,11 @@ export function rankDiagnoses(
       })
       .sort((a, b) => Math.abs(b.deltaLogOdds) - Math.abs(a.deltaLogOdds));
 
-    const wins = thorough ? worlds.filter((w) => w.topId === model.id).length : 0;
-    const stability = thorough ? wins / worlds.length : Number.NaN;
+    const nearby = thorough
+      ? worlds.filter((w) => bitCount(w.mask ^ observed) <= 2)
+      : [];
+    const wins = nearby.filter((w) => w.topId === model.id).length;
+    const stability = nearby.length ? wins / nearby.length : Number.NaN;
 
     return {
       id: model.id,
@@ -161,11 +184,11 @@ export function rankDiagnoses(
   if (mostLikely && mostLikely.posterior >= 0.55 && gap >= 0.18 && topStability >= 0.6) {
     confidence = "high";
     confidenceWhy =
-      "Leading diagnosis keeps the highest posterior and remains first in most leave-flip worlds. Still a draft — confirm at the bedside.";
-  } else if (mostLikely && (mostLikely.posterior < 0.22 || topStability < 0.35 || gap < 0.05)) {
+      "Leading diagnosis has a clear posterior gap and stays first in most Hamming-distance ≤ 2 worlds. Still a draft — confirm at the bedside.";
+  } else if (mostLikely && (mostLikely.posterior < 0.22 || gap < 0.05 || (Number.isFinite(topStability) && topStability < 0.4))) {
     confidence = "low";
     confidenceWhy =
-      "Rank is unstable under finding flips, or the leading posterior is modest. Gather the missing data before acting.";
+      "Nearby finding flips overturn the rank, or the leading posterior is modest. Gather the missing data before acting.";
   }
 
   if (missing.length >= 4 && (!mostLikely || mostLikely.posterior < 0.4)) {
