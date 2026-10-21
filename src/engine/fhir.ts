@@ -8,7 +8,7 @@ export type FhirResourceType =
   | "AllergyIntolerance";
 
 export interface FhirResource {
-  resourceType: FhirResourceType | string;
+  resourceType: FhirResourceType;
   id: string;
   [key: string]: unknown;
 }
@@ -56,7 +56,102 @@ export interface FhirChartSlice {
   allergies: string[];
 }
 
-const DEMO_SYSTEM = "urn:nomi:demo";
+/**
+ * RESTful base for fullUrl. R4 resolves a relative reference such as
+ * `Patient/P-88472` against the base of the referring entry's fullUrl, so the
+ * fullUrl must be `[base]/[type]/[id]` for references to resolve inside the
+ * Bundle. `.example` is reserved (RFC 2606), so it can never collide with a
+ * real FHIR server.
+ */
+export const FHIR_BASE = "https://nomi.example/fhir";
+
+const NOMI_SD = `${FHIR_BASE}/StructureDefinition`;
+const NOMI_LAB_CODES = `${FHIR_BASE}/CodeSystem/demo-lab`;
+const NOMI_MRN = `${FHIR_BASE}/sid/mrn`;
+/** Namespace used by bundles exported before this format; still accepted on import. */
+const LEGACY_NS = "urn:nomi:demo";
+
+const LOINC = "http://loinc.org";
+const UCUM = "http://unitsofmeasure.org";
+const SNOMED = "http://snomed.info/sct";
+const OBS_CATEGORY = "http://terminology.hl7.org/CodeSystem/observation-category";
+const HL7_SD = "http://hl7.org/fhir/StructureDefinition";
+
+/** Chart units mapped to UCUM codes. Units missing here are exported as text only. */
+const UCUM_CODES: Record<string, string> = {
+  "pg/mL": "pg/mL",
+  "ng/mL": "ng/mL",
+  "mg/dL": "mg/dL",
+  "mg/L": "mg/L",
+  "mmol/L": "mmol/L",
+  "mL/min": "mL/min",
+  "K/µL": "10*3/uL",
+  mmHg: "mm[Hg]",
+  "/min": "/min",
+  "%": "%",
+  Cel: "Cel",
+  kg: "kg"
+};
+
+/** "No known drug allergies" is an assertion, coded as a SNOMED CT situation rather than a substance. */
+const NKDA_PATTERN = /^no known (drug )?allergies$/i;
+const NKDA_CODE = { system: SNOMED, code: "409137002", display: "No known drug allergy (situation)" };
+
+/** Separator between substance and reaction in chart allergy strings ("Penicillin — rash"). */
+const REACTION_SEPARATOR = " — ";
+
+interface VitalSpec {
+  key: string;
+  profile: string;
+  codings: { system: string; code: string; display: string }[];
+  text: string;
+  unit: string;
+  value: (patient: Patient) => number;
+}
+
+/** R4 vital signs profiles (http://hl7.org/fhir/R4/observation-vitalsigns.html). */
+const VITALS: VitalSpec[] = [
+  {
+    key: "hr",
+    profile: "heartrate",
+    codings: [{ system: LOINC, code: "8867-4", display: "Heart rate" }],
+    text: "Heart rate",
+    unit: "/min",
+    value: (p) => p.vitals.hr
+  },
+  {
+    key: "rr",
+    profile: "resprate",
+    codings: [{ system: LOINC, code: "9279-1", display: "Respiratory rate" }],
+    text: "Respiratory rate",
+    unit: "/min",
+    value: (p) => p.vitals.rr
+  },
+  {
+    key: "spo2",
+    profile: "oxygensat",
+    codings: [{ system: LOINC, code: "2708-6", display: "Oxygen saturation in Arterial blood" }],
+    text: "Oxygen saturation",
+    unit: "%",
+    value: (p) => p.vitals.spo2
+  },
+  {
+    key: "temp",
+    profile: "bodytemp",
+    codings: [{ system: LOINC, code: "8310-5", display: "Body temperature" }],
+    text: "Body temperature",
+    unit: "Cel",
+    value: (p) => p.vitals.tempC
+  },
+  {
+    key: "wt",
+    profile: "bodyweight",
+    codings: [{ system: LOINC, code: "29463-7", display: "Body weight" }],
+    text: "Body weight",
+    unit: "kg",
+    value: (p) => p.vitals.weightKg
+  }
+];
 
 function fhirGender(sex: Patient["sex"]): "male" | "female" | "unknown" {
   if (sex === "male" || sex === "female") return sex;
@@ -65,7 +160,7 @@ function fhirGender(sex: Patient["sex"]): "male" | "female" | "unknown" {
 
 function entry(resource: FhirResource): FhirBundleEntry {
   return {
-    fullUrl: `${DEMO_SYSTEM}/${resource.resourceType}/${resource.id}`,
+    fullUrl: `${FHIR_BASE}/${resource.resourceType}/${resource.id}`,
     resource
   };
 }
@@ -79,51 +174,42 @@ function slug(value: string, fallback: string): string {
   return cleaned || fallback;
 }
 
-function observation(
-  id: string,
-  name: string,
-  value: number,
-  unit: string,
-  category: "laboratory" | "vital-signs",
-  subjectId: string
-): FhirResource {
-  return {
-    resourceType: "Observation",
-    id,
-    status: "final",
-    category: [
-      {
-        coding: [
-          {
-            system: "http://terminology.hl7.org/CodeSystem/observation-category",
-            code: category
-          }
-        ]
-      }
-    ],
-    code: {
-      coding: [{ system: `${DEMO_SYSTEM}:code`, code: id, display: name }],
-      text: name
-    },
-    subject: { reference: `Patient/${subjectId}` },
-    valueQuantity: { value, unit, system: `${DEMO_SYSTEM}:unit` }
-  };
+function quantity(value: number, unit: string): Record<string, unknown> {
+  const code = UCUM_CODES[unit];
+  return code ? { value, unit, system: UCUM, code } : { value, unit };
+}
+
+function minutesBefore(now: Date, minutes: number): string {
+  return new Date(now.getTime() - minutes * 60_000).toISOString();
+}
+
+function vitalCategory() {
+  return [{ coding: [{ system: OBS_CATEGORY, code: "vital-signs", display: "Vital Signs" }] }];
 }
 
 /**
- * Read-only FHIR R4-shaped collection for a synthetic chart.
+ * Read-only FHIR R4 collection for a synthetic chart.
  * Identifiers only — no personal names, no live EHR write-back.
  */
 export function buildFhirBundle(patient: Patient, now = new Date()): FhirBundle {
   const entries: FhirBundleEntry[] = [];
+  const subject = { reference: `Patient/${patient.id}` };
+  const vitalsAt = minutesBefore(now, patient.vitals.takenMinutesAgo);
+  const labsAt = minutesBefore(now, patient.labsDrawnMinutesAgo);
 
   entries.push(
     entry({
       resourceType: "Patient",
       id: patient.id,
-      identifier: [{ system: `${DEMO_SYSTEM}:mrn`, value: patient.mrn }],
+      identifier: [
+        {
+          type: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/v2-0203", code: "MR" }] },
+          system: NOMI_MRN,
+          value: patient.mrn
+        }
+      ],
       gender: fhirGender(patient.sex),
-      extension: [{ url: `${DEMO_SYSTEM}:age-years`, valueInteger: patient.ageYears }]
+      extension: [{ url: `${NOMI_SD}/age-years`, valueInteger: patient.ageYears }]
     })
   );
 
@@ -133,45 +219,92 @@ export function buildFhirBundle(patient: Patient, now = new Date()): FhirBundle 
         resourceType: "Condition",
         id: `cond-${patient.id}-${index + 1}`,
         clinicalStatus: {
-          coding: [
-            {
-              system: "http://terminology.hl7.org/CodeSystem/condition-clinical",
-              code: "active"
-            }
-          ]
+          coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-clinical", code: "active" }]
         },
         verificationStatus: {
-          coding: [
-            {
-              system: "http://terminology.hl7.org/CodeSystem/condition-ver-status",
-              code: "provisional"
-            }
-          ]
+          coding: [{ system: "http://terminology.hl7.org/CodeSystem/condition-ver-status", code: "provisional" }]
         },
+        category: [
+          {
+            coding: [
+              { system: "http://terminology.hl7.org/CodeSystem/condition-category", code: "problem-list-item" }
+            ]
+          }
+        ],
         code: { text: problem },
-        subject: { reference: `Patient/${patient.id}` }
+        subject
       })
     );
   });
 
   for (const lab of patient.labs) {
-    entries.push(entry(observation(`lab-${lab.id}`, lab.name, lab.value, lab.unit, "laboratory", patient.id)));
+    entries.push(
+      entry({
+        resourceType: "Observation",
+        id: `${patient.id}-lab-${lab.id}`,
+        status: "final",
+        category: [{ coding: [{ system: OBS_CATEGORY, code: "laboratory", display: "Laboratory" }] }],
+        code: {
+          coding: [{ system: NOMI_LAB_CODES, code: lab.id, display: lab.name }],
+          text: lab.name
+        },
+        subject,
+        effectiveDateTime: labsAt,
+        valueQuantity: quantity(lab.value, lab.unit)
+      })
+    );
   }
 
-  const vitals: { id: string; name: string; value: number; unit: string }[] = [
-    { id: "vital-sbp", name: "Systolic blood pressure", value: patient.vitals.bpSys, unit: "mmHg" },
-    { id: "vital-dbp", name: "Diastolic blood pressure", value: patient.vitals.bpDia, unit: "mmHg" },
-    { id: "vital-hr", name: "Heart rate", value: patient.vitals.hr, unit: "/min" },
-    { id: "vital-rr", name: "Respiratory rate", value: patient.vitals.rr, unit: "/min" },
-    { id: "vital-spo2", name: "Oxygen saturation", value: patient.vitals.spo2, unit: "%" },
-    { id: "vital-temp", name: "Body temperature", value: patient.vitals.tempC, unit: "Cel" },
-    { id: "vital-wt", name: "Body weight", value: patient.vitals.weightKg, unit: "kg" }
-  ];
-  for (const vital of vitals) {
-    entries.push(entry(observation(vital.id, vital.name, vital.value, vital.unit, "vital-signs", patient.id)));
+  entries.push(
+    entry({
+      resourceType: "Observation",
+      id: `${patient.id}-vital-bp`,
+      meta: { profile: [`${HL7_SD}/bp`] },
+      status: "final",
+      category: vitalCategory(),
+      code: {
+        coding: [{ system: LOINC, code: "85354-9", display: "Blood pressure panel with all children optional" }],
+        text: "Blood pressure"
+      },
+      subject,
+      effectiveDateTime: vitalsAt,
+      component: [
+        {
+          code: {
+            coding: [{ system: LOINC, code: "8480-6", display: "Systolic blood pressure" }],
+            text: "Systolic blood pressure"
+          },
+          valueQuantity: quantity(patient.vitals.bpSys, "mmHg")
+        },
+        {
+          code: {
+            coding: [{ system: LOINC, code: "8462-4", display: "Diastolic blood pressure" }],
+            text: "Diastolic blood pressure"
+          },
+          valueQuantity: quantity(patient.vitals.bpDia, "mmHg")
+        }
+      ]
+    })
+  );
+
+  for (const vital of VITALS) {
+    entries.push(
+      entry({
+        resourceType: "Observation",
+        id: `${patient.id}-vital-${vital.key}`,
+        meta: { profile: [`${HL7_SD}/${vital.profile}`] },
+        status: "final",
+        category: vitalCategory(),
+        code: { coding: vital.codings, text: vital.text },
+        subject,
+        effectiveDateTime: vitalsAt,
+        valueQuantity: quantity(vital.value(patient), vital.unit)
+      })
+    );
   }
 
   patient.meds.forEach((med, index) => {
+    const prn = /\bPRN\b/i.test(med.schedule);
     entries.push(
       entry({
         resourceType: "MedicationRequest",
@@ -179,38 +312,51 @@ export function buildFhirBundle(patient: Patient, now = new Date()): FhirBundle 
         status: "active",
         intent: "order",
         medicationCodeableConcept: { text: med.name },
-        subject: { reference: `Patient/${patient.id}` },
+        subject,
         dosageInstruction: [
           {
             text: `${med.dose} ${med.route} ${med.schedule}`,
+            ...(prn ? { asNeededBoolean: true } : {}),
             route: { text: med.route },
             timing: { code: { text: med.schedule } }
           }
         ],
         extension: [
-          { url: `${DEMO_SYSTEM}:dose`, valueString: med.dose },
-          { url: `${DEMO_SYSTEM}:route`, valueString: med.route },
-          { url: `${DEMO_SYSTEM}:schedule`, valueString: med.schedule }
+          { url: `${NOMI_SD}/dose`, valueString: med.dose },
+          { url: `${NOMI_SD}/route`, valueString: med.route },
+          { url: `${NOMI_SD}/schedule`, valueString: med.schedule }
         ]
       })
     );
   });
 
   patient.allergies.forEach((allergy, index) => {
+    const nkda = NKDA_PATTERN.test(allergy.trim());
+    const [substance, reaction] = nkda ? [allergy, undefined] : allergy.split(REACTION_SEPARATOR, 2);
     entries.push(
       entry({
         resourceType: "AllergyIntolerance",
         id: `alg-${patient.id}-${index + 1}`,
         clinicalStatus: {
           coding: [
-            {
-              system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
-              code: "active"
-            }
+            { system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", code: "active" }
           ]
         },
-        code: { text: allergy },
-        patient: { reference: `Patient/${patient.id}` }
+        ...(nkda
+          ? {
+              verificationStatus: {
+                coding: [
+                  {
+                    system: "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+                    code: "confirmed"
+                  }
+                ]
+              },
+              code: { coding: [NKDA_CODE], text: allergy }
+            }
+          : { code: { text: substance } }),
+        patient: subject,
+        ...(reaction ? { reaction: [{ manifestation: [{ text: reaction }] }] } : {})
       })
     );
   });
@@ -223,7 +369,7 @@ export function buildFhirBundle(patient: Patient, now = new Date()): FhirBundle 
     meta: {
       tag: [
         {
-          system: DEMO_SYSTEM,
+          system: `${FHIR_BASE}/CodeSystem/data-origin`,
           code: "synthetic",
           display: "Synthetic demonstration chart — not a medical record"
         }
@@ -256,8 +402,8 @@ function textOf(value: unknown): string {
   return "";
 }
 
-function quantityOf(resource: Record<string, unknown>): { value: number; unit: string } | null {
-  const qty = resource.valueQuantity;
+function quantityOf(holder: Record<string, unknown>): { value: number; unit: string } | null {
+  const qty = holder.valueQuantity;
   if (!isRecord(qty) || typeof qty.value !== "number") return null;
   return { value: qty.value, unit: typeof qty.unit === "string" ? qty.unit : "" };
 }
@@ -274,9 +420,34 @@ function categoryOf(resource: Record<string, unknown>): "laboratory" | "vital-si
   return "laboratory";
 }
 
+/** One slice per value: the Observation's own value, or one per component (e.g. a blood pressure panel). */
+function observationSlices(resource: Record<string, unknown>): FhirObservationSlice[] {
+  if (typeof resource.id !== "string") return [];
+  const id = resource.id;
+  const category = categoryOf(resource);
+  const own = quantityOf(resource);
+  if (own) {
+    return [{ id, name: textOf(resource.code) || id, value: own.value, unit: own.unit, category }];
+  }
+  const components = Array.isArray(resource.component) ? resource.component.filter(isRecord) : [];
+  return components.flatMap((component) => {
+    const qty = quantityOf(component);
+    if (!qty) return [];
+    const name = textOf(component.code);
+    return [{ id: `${id}-${slug(name, "component")}`, name: name || id, value: qty.value, unit: qty.unit, category }];
+  });
+}
+
+function extensionString(extensions: Record<string, unknown>[], name: string): string {
+  const urls = [`${NOMI_SD}/${name}`, `${LEGACY_NS}:${name}`];
+  const hit = extensions.find((item) => typeof item.url === "string" && urls.includes(item.url));
+  return hit && typeof hit.valueString === "string" ? hit.valueString : "";
+}
+
 /**
  * Parse a bundle produced by `buildFhirBundle` (or an equivalent collection)
- * back into a chart slice. Rejects non-Bundle JSON.
+ * back into a chart slice. Also reads bundles exported by earlier versions.
+ * Rejects non-Bundle JSON.
  */
 export function parseFhirBundle(input: unknown): FhirChartSlice {
   const raw = typeof input === "string" ? JSON.parse(input) : input;
@@ -313,41 +484,34 @@ export function parseFhirBundle(input: unknown): FhirChartSlice {
 
   const observations = resources
     .filter((r) => r.resourceType === "Observation")
-    .map((r) => {
-      const qty = quantityOf(r);
-      if (!qty || typeof r.id !== "string") return null;
-      return {
-        id: r.id,
-        name: textOf(r.code) || r.id,
-        value: qty.value,
-        unit: qty.unit,
-        category: categoryOf(r)
-      } satisfies FhirObservationSlice;
-    })
-    .filter((item): item is FhirObservationSlice => item !== null);
+    .flatMap(observationSlices);
 
   const meds = resources
     .filter((r) => r.resourceType === "MedicationRequest")
     .map((r) => {
-      const extensions = Array.isArray(r.extension) ? r.extension.filter(isRecord) : [];
-      const ext = (suffix: string) => {
-        const hit = extensions.find((item) => item.url === `${DEMO_SYSTEM}:${suffix}`);
-        return hit && typeof hit.valueString === "string" ? hit.valueString : "";
-      };
+      const medExtensions = Array.isArray(r.extension) ? r.extension.filter(isRecord) : [];
       const dosage = Array.isArray(r.dosageInstruction) && isRecord(r.dosageInstruction[0])
         ? r.dosageInstruction[0]
         : undefined;
       return {
         name: textOf(r.medicationCodeableConcept) || "unknown",
-        dose: ext("dose"),
-        route: ext("route") || (dosage ? textOf(dosage.route) : ""),
-        schedule: ext("schedule") || (dosage && isRecord(dosage.timing) ? textOf(dosage.timing.code) : "")
+        dose: extensionString(medExtensions, "dose"),
+        route: extensionString(medExtensions, "route") || (dosage ? textOf(dosage.route) : ""),
+        schedule:
+          extensionString(medExtensions, "schedule") ||
+          (dosage && isRecord(dosage.timing) ? textOf(dosage.timing.code) : "")
       } satisfies FhirMedicationSlice;
     });
 
   const allergies = resources
     .filter((r) => r.resourceType === "AllergyIntolerance")
-    .map((r) => textOf(r.code))
+    .map((r) => {
+      const substance = textOf(r.code);
+      const reaction = Array.isArray(r.reaction) && isRecord(r.reaction[0]) ? r.reaction[0] : undefined;
+      const manifestation =
+        reaction && Array.isArray(reaction.manifestation) ? textOf(reaction.manifestation[0]) : "";
+      return manifestation ? `${substance}${REACTION_SEPARATOR}${manifestation}` : substance;
+    })
     .filter(Boolean);
 
   return {

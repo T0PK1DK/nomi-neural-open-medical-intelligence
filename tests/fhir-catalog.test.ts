@@ -36,7 +36,8 @@ describe("FHIR export", () => {
     const counts = bundleResourceCounts(bundle);
     expect(counts.Patient).toBe(1);
     expect(counts.Condition).toBe(patient.problems.length);
-    expect(counts.Observation).toBe(patient.labs.length + 7);
+    // Labs, one blood pressure panel, and five single-value vital signs.
+    expect(counts.Observation).toBe(patient.labs.length + 6);
     expect(counts.MedicationRequest).toBe(patient.meds.length);
     expect(counts.AllergyIntolerance).toBe(patient.allergies.length);
 
@@ -56,7 +57,8 @@ describe("FHIR export", () => {
       schedule: m.schedule
     })));
     expect(parsed.allergies).toEqual(patient.allergies);
-    expect(parsed.vitals.some((v) => v.id === "vital-sbp" && v.value === 128)).toBe(true);
+    expect(parsed.vitals.find((v) => v.name === "Systolic blood pressure")?.value).toBe(128);
+    expect(parsed.vitals.find((v) => v.name === "Diastolic blood pressure")?.value).toBe(76);
     expect(json).not.toMatch(/Robert|Alex|Ellis|Morgan/i);
   });
 
@@ -66,7 +68,9 @@ describe("FHIR export", () => {
       expect(slice.patientId).toBe(patient.id);
       expect(slice.mrn).toBe(patient.mrn);
       expect(slice.problems).toEqual(patient.problems);
+      expect(slice.allergies).toEqual(patient.allergies);
       expect(slice.labs).toHaveLength(patient.labs.length);
+      expect(slice.vitals).toHaveLength(7);
       expect(slice.meds.map((m) => m.name)).toEqual(patient.meds.map((m) => m.name));
     }
   });

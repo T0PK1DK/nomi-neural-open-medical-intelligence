@@ -188,7 +188,11 @@ export interface Patient {
     spo2: number;
     tempC: number;
     weightKg: number;
+    /** Minutes before "now" that this vitals set was charted. */
+    takenMinutesAgo: number;
   };
+  /** Minutes before "now" that the current lab panel was drawn. */
+  labsDrawnMinutesAgo: number;
   labs: Lab[];
   findings: Finding[];
   series: MonitoringPoint[];
