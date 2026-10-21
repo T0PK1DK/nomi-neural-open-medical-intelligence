@@ -168,7 +168,7 @@ select:focus, input:focus, textarea:focus { outline: 2px solid rgba(34,211,238,0
 .btn { background: var(--cyan); color: #042f2e; }
 .btn:hover { filter: brightness(1.08); }
 .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--card-border); }
-.btn-ghost.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-glow); }
+.btn-ghost.active { border-color: var(--cyan); color: #042f2e; background: var(--cyan); }
 .btn-danger { background: rgba(239,68,68,0.15); color: #fca5a5; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
 .mode-toggle { display: inline-flex; gap: 6px; }
@@ -191,7 +191,7 @@ select:focus, input:focus, textarea:focus { outline: 2px solid rgba(34,211,238,0
   position: fixed;
   inset: 0;
   background: rgba(2, 6, 23, 0.62);
-  z-index: 14;
+  z-index: 21;
 }
 .scrim.show { display: block; }
 .bottom-nav {
@@ -271,8 +271,8 @@ select:focus, input:focus, textarea:focus { outline: 2px solid rgba(34,211,238,0
     top: 0;
     bottom: 0;
     width: min(360px, 92vw);
-    z-index: 16;
-    padding-top: 56px;
+    z-index: 22;
+    padding-top: 12px;
   }
   .mobile-bar { display: flex; }
   .drawer-close { display: inline-flex; min-height: 40px; }
@@ -280,6 +280,8 @@ select:focus, input:focus, textarea:focus { outline: 2px solid rgba(34,211,238,0
   .btn, .btn-ghost, .btn-danger, .nav-item { min-height: 40px; }
 }
 @media (max-width: 760px) {
+  .disclaimer-bar { font-size: 11px; padding: 6px 10px; }
+  .live-pill { display: none; }
   .app { grid-template-columns: 1fr; min-height: calc(100vh - 34px); }
   .sidebar { display: none; }
   .sidebar.open {
@@ -289,8 +291,8 @@ select:focus, input:focus, textarea:focus { outline: 2px solid rgba(34,211,238,0
     left: 0;
     bottom: 0;
     width: min(300px, 88vw);
-    z-index: 16;
-    padding-top: 56px;
+    z-index: 22;
+    padding-top: 12px;
     max-height: none;
     overflow: auto;
   }
