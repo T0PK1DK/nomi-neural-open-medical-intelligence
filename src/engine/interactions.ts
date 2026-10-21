@@ -115,7 +115,7 @@ export function analyzeInteractions(
   const nsaid = has(meds, "ibuprofen") || has(meds, "naproxen");
   if (ace && loop && nsaid) {
     alerts.push({
-      drugs: [ace.name, nsaid.name],
+      drugs: [ace.name, loop.name, nsaid.name],
       severity: "high",
       mechanism: "ACE inhibitor + diuretic + NSAID (triple whammy) — high AKI risk.",
       management: "Stop the NSAID; recheck creatinine and potassium within 24–48 hours.",

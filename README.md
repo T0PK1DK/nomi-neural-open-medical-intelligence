@@ -19,9 +19,10 @@ Open the interactive prototype with `npm install` and `npm run dev`, then visit 
 - Roster search, remote-monitoring sparklines, MAD anomaly alerts with acknowledge / escalate
 - Review-before-release patient-facing drafts
 - Role density: clinician / student / researcher — **no PIN or passcode gate**
-- FHIR-shaped read-only chips and a synthetic similar-cohort card
-- Hash routes, command palette (⌘K / Ctrl+K), keyboard-visible controls
-- Vitest coverage for the reasoner, interactions, risk, copilot, search, audit, and graph
+- FHIR-shaped read-only chips and a **downloadable R4 collection Bundle** (Patient, Condition, Observation, MedicationRequest, AllergyIntolerance) with a round-trip parse test
+- Hash routes, command palette (⌘K / Ctrl+K), keyboard-visible graph nodes
+- Mobile layout: left/right drawers with a scrim, labelled bottom navigation, 44 px targets, and horizontally scrollable tables
+- Vitest coverage for the reasoner, interactions, risk, copilot, search, audit, graph, catalog integrity, and FHIR export
 
 Demo charts use identifiers only (`P-88472`, …). Public copy contains **no personal names**.
 
