@@ -90,6 +90,27 @@ describe("Bayesian ranker", () => {
     expect(student).toMatch(/likelihood ratios/i);
   });
 
+  it("keeps sepsis on the cannot-miss list when fever, hypotension, and lactate are present", () => {
+    const findings: Finding[] = [
+      { id: "fever", label: "Fever", polarity: "present" },
+      { id: "hypotension", label: "Hypotension", polarity: "present" },
+      { id: "lactate", label: "Raised lactate", polarity: "present" },
+      { id: "dyspnea", label: "Dyspnea", polarity: "absent" }
+    ];
+    const result = rankDiagnoses(DIAGNOSES, findings, { thorough: true });
+    expect(result.cannotMiss.some((d) => d.id === "sepsis")).toBe(true);
+  });
+
+  it("keeps ACS on the cannot-miss list when chest pain and a mild troponin rise are present", () => {
+    const findings: Finding[] = [
+      { id: "chest_pain", label: "Ischemic chest pain", polarity: "present" },
+      { id: "mild_troponin", label: "Mild troponin rise", polarity: "present" },
+      { id: "fever", label: "Fever", polarity: "absent" }
+    ];
+    const result = rankDiagnoses(DIAGNOSES, findings, { thorough: true });
+    expect(result.cannotMiss.some((d) => d.id === "acs")).toBe(true);
+  });
+
   it("updates log-odds when a finding polarity flips", () => {
     const model = DIAGNOSES.find((d) => d.id === "adhf")!;
     const present: Finding[] = [{ id: "elevated_bnp", label: "BNP", polarity: "present" }];

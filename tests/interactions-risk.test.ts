@@ -24,7 +24,9 @@ describe("interactions", () => {
       { name: "Ibuprofen", dose: "400", route: "PO", schedule: "PRN" }
     ];
     const alerts = analyzeInteractions(meds, { egfr: 50 });
-    expect(alerts.some((a) => /triple/i.test(a.mechanism))).toBe(true);
+    const triple = alerts.find((a) => /triple/i.test(a.mechanism));
+    expect(triple).toBeTruthy();
+    expect(triple!.drugs).toEqual(["Lisinopril", "Furosemide", "Ibuprofen"]);
     expect(rankSeverity("critical")).toBeGreaterThan(rankSeverity("low"));
   });
 

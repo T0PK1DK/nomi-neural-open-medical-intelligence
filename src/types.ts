@@ -92,7 +92,7 @@ export interface ReasonerResult {
 }
 
 export interface InteractionAlert {
-  drugs: [string, string];
+  drugs: string[];
   severity: Severity;
   mechanism: string;
   management: string;

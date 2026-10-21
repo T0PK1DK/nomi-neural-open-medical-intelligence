@@ -37,14 +37,7 @@ Read these first, in order:
 
 ### Suggested next upgrades (pick one vertical and finish it)
 
-1. **Evidence catalog quality** — attach a real, public, citation-only digest (titles + URLs you already have in RESEARCH) to each diagnosis driver; add a test that every `sourceIds` entry resolves.
-2. **FHIR export** — generate a downloadable Bundle JSON for the focused chart (Patient, Condition, Observation, MedicationRequest) and test round-trip parse. Still read-only, still synthetic.
-3. **Cannot-miss coverage tests** — property test: any case with `hypotension + lactate + fever` must keep `sepsis` on the cannot-miss list; any `chest_pain + mild_troponin` must keep `acs`.
-4. **Accessibility pass** — axe-core or equivalent in Vitest/jsdom; fix contrast on the amber disclaimer bar if it fails.
-5. **Message composer** — let the clinician edit the patient-facing draft before Review & release; persist edits in session state; audit the diff.
-6. **Monitoring playback** — scrub the 24-hour trace and recompute NEWS2-like + anomalies at each hour (use the existing series; do not invent a backend).
-7. **Graph persistence** — remember selected node in the hash (`#/graph/P-88472?node=adhf`).
-8. **i18n-ready strings** — extract UI copy from `src/app.ts` into `src/i18n/en.ts` without changing behavior.
+See the 2026-10-21 addendum below. FHIR export, catalog `sourceIds` resolution, cannot-miss coverage cases, and the disclaimer contrast fix are already done.
 
 ### How to verify
 
@@ -73,8 +66,40 @@ Live EHR, real PHI, model APIs, billing, e-prescribing, deployment, authenticati
 | `src/engine/search.ts` | Roster + palette |
 | `src/data/catalog.ts` | Diagnoses + sources |
 | `src/data/patients.ts` | Synthetic charts |
+| `src/engine/fhir.ts` | Synthetic FHIR Bundle build / parse |
 | `src/app.ts` | State, hash router, views |
 
 ## Research already done
 
 Do not redo `docs/RESEARCH.md` unless a product fact is wrong. Official starting points: OpenEvidence, Glass Health, Abridge, Dragon Copilot, Epic Cosmos, UpToDate / Lexidrug, DynaMed, VisualDx, Isabel, Nabla, Tempus, Viz.ai, Biofourmis, Current Health, HL7 FHIR, FDA CDS guidance. Full links live in that file.
+
+---
+
+## 2026-10-21 improvement pass (FHIR export + mobile)
+
+### What landed
+
+- **Feature:** `src/engine/fhir.ts` builds a read-only FHIR R4 `collection` Bundle for the focused chart (Patient + Condition + Observation + MedicationRequest + AllergyIntolerance). Dashboard **Download FHIR bundle** writes `p-#####-fhir-bundle.json`. Identifiers only. `parseFhirBundle` round-trips the slice; tests reject non-Bundle JSON.
+- **Bugs:** evidence-rail Send now opens Copilot with the reply; single-point sparklines no longer divide by zero; cannot-miss rows are not duplicated in Most likely / Expanded; triple-whammy alerts list all three drugs; Escape / scrim close the mobile drawers and palette; hash patient changes clear the graph selection; copilot Quick/Thorough show `aria-pressed`.
+- **UI / mobile:** high-contrast disclaimer bar; left menu drawer and right evidence drawer with Close; labelled bottom navigation under 760 px; 2-up vital tiles; 44 px primary targets; table overflow wrappers; keyboard-focusable graph nodes.
+- **Tests added:** catalog `sourceIds` resolution, cannot-miss coverage for sepsis / ACS, FHIR round-trip for every demo chart.
+
+### Constraints still in force
+
+Do not deploy. No passcodes. No personal names in public copy. No vendor-asset copies. Keep the disclaimer.
+
+### Suggested next upgrades (pick one)
+
+1. **Evidence catalog quality** — attach a real, public, citation-only digest (titles + URLs already in RESEARCH) to each diagnosis driver.
+2. **Cannot-miss coverage expansion** — more property cases beyond fever+hypotension+lactate and chest_pain+mild_troponin.
+3. **Accessibility pass** — axe-core or equivalent in Vitest/jsdom on the rendered shell.
+4. **Message composer** — edit the patient-facing draft before Review & release; persist edits; audit the diff.
+5. **Monitoring playback** — scrub the 24-hour trace and recompute NEWS2-like + anomalies at each hour.
+6. **Graph persistence** — remember selected node in the hash (`#/graph/P-88472?node=adhf`).
+7. **i18n-ready strings** — extract UI copy from `src/app.ts` into `src/i18n/en.ts`.
+
+### Architecture addendum
+
+| Path | Role |
+| --- | --- |
+| `src/engine/fhir.ts` | Synthetic FHIR Bundle build / parse / filename |

@@ -2,6 +2,12 @@ import { DIAGNOSES, sourceById } from "./data/catalog";
 import { PATIENTS, patientById } from "./data/patients";
 import { appendAudit, filterAudit, makeAuditEvent } from "./engine/audit";
 import { answerQuestion } from "./engine/copilot";
+import {
+  buildFhirBundle,
+  bundleResourceCounts,
+  fhirFilename,
+  serializeFhirBundle
+} from "./engine/fhir";
 import { layoutGraph, neighborsOf, type LaidOutNode } from "./engine/graph";
 import { analyzeInteractions } from "./engine/interactions";
 import { explainForRole, rankDiagnoses } from "./engine/reasoner";
@@ -44,6 +50,7 @@ interface State {
   panelOpen: boolean;
   navOpen: boolean;
   auditQuery: string;
+  lastExport: string | null;
 }
 
 const VIEWS: { id: ViewId; label: string }[] = [
@@ -131,14 +138,32 @@ function sparkline(values: number[], invert = false): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
+  const yOf = (v: number) => (invert ? ((v - min) / span) * 40 + 4 : 44 - ((v - min) / span) * 40);
+  if (values.length === 1) {
+    return `<svg class="spark" viewBox="0 0 120 48" aria-hidden="true"><circle cx="60" cy="${yOf(values[0]).toFixed(1)}" r="3.5" fill="#22d3ee"></circle></svg>`;
+  }
   const pts = values
     .map((v, i) => {
       const x = (i / (values.length - 1)) * 120;
-      const y = invert ? ((v - min) / span) * 40 + 4 : 44 - ((v - min) / span) * 40;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+      return `${x.toFixed(1)},${yOf(v).toFixed(1)}`;
     })
     .join(" ");
   return `<svg class="spark" viewBox="0 0 120 48" aria-hidden="true"><polyline fill="none" stroke="#22d3ee" stroke-width="2" points="${pts}" /></svg>`;
+}
+
+function downloadFhir(patient: Patient): void {
+  const blob = new Blob([serializeFhirBundle(buildFhirBundle(patient))], {
+    type: "application/fhir+json"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fhirFilename(patient.id);
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function actionLabel(action: InsightAction | AlertAction): string {
@@ -178,8 +203,11 @@ export function mount(root: HTMLElement): void {
     graphSelected: null,
     panelOpen: false,
     navOpen: false,
-    auditQuery: ""
+    auditQuery: "",
+    lastExport: null
   };
+
+  let focusAfterRender: "main" | "roster" | "audit" | "palette" | null = null;
 
   const patient = () => patientById(state.patientId) ?? PATIENTS[0];
 
@@ -192,6 +220,7 @@ export function mount(root: HTMLElement): void {
     state.patientId = id;
     state.chat = [];
     state.graphSelected = null;
+    state.lastExport = null;
     log("context", `Focused ${id}`);
     writeHash(state.view, state.patientId);
     render();
@@ -201,10 +230,17 @@ export function mount(root: HTMLElement): void {
     state.view = view;
     state.navOpen = false;
     writeHash(view, state.patientId);
+    focusAfterRender = "main";
     render();
   };
 
-  const ask = (question: string) => {
+  const closeOverlays = () => {
+    state.navOpen = false;
+    state.panelOpen = false;
+    state.commandOpen = false;
+  };
+
+  const ask = (question: string, goToCopilot = false) => {
     const q = question.trim();
     if (!q) return;
     const reply = answerQuestion(q, patient(), state.role, state.mode);
@@ -216,15 +252,24 @@ export function mount(root: HTMLElement): void {
       abstained: reply.abstained
     });
     log("copilot", `${reply.intent}: ${q.slice(0, 80)}`);
+    if (goToCopilot) {
+      state.view = "copilot";
+      state.panelOpen = false;
+      writeHash("copilot", state.patientId);
+      focusAfterRender = "main";
+    }
     render();
   };
 
   function renderSidebar(): string {
     return `
-      <aside class="sidebar${state.navOpen ? " open" : ""}" aria-label="Primary">
-        <div class="logo">
-          <div class="logo-mark" aria-hidden="true">N</div>
-          <div>NOMI<small>Neural open medical intelligence</small></div>
+      <aside id="primary-nav" class="sidebar${state.navOpen ? " open" : ""}" aria-label="Primary">
+        <div class="drawer-head">
+          <div class="logo">
+            <div class="logo-mark" aria-hidden="true">N</div>
+            <div>NOMI<small>Neural open medical intelligence</small></div>
+          </div>
+          <button class="btn-ghost drawer-close" data-cmd="nav" aria-label="Close menu">Close</button>
         </div>
         ${VIEWS.map(
           (v) => `<button class="nav-item${state.view === v.id ? " active" : ""}" data-nav="${v.id}" ${
@@ -262,9 +307,10 @@ export function mount(root: HTMLElement): void {
     const leadSources = (result.mostLikely?.sourceIds ?? []).map(sourceById).filter(Boolean);
     return `
       <aside class="right-panel${state.panelOpen ? " open" : ""}" aria-label="Evidence">
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="drawer-head">
           <strong>Evidence rail</strong>
           <span class="badge badge-cyan">${state.mode === "thorough" ? "Thorough" : "Quick"}</span>
+          <button class="btn-ghost drawer-close" data-cmd="panel" aria-label="Close evidence">Close</button>
         </div>
         <p class="meta">${escapeHtml(explainForRole(result, state.role))}</p>
         ${leadSources
@@ -300,9 +346,15 @@ export function mount(root: HTMLElement): void {
     });
     const insightKey = `${p.id}-insight`;
     const status = state.insight[insightKey] ?? "pending";
-    const most = result.ranked.filter((d) => d.band === "strong" || d === result.ranked[0]);
-    const expanded = result.ranked.filter((d) => d.band === "possible");
-    const miss = result.cannotMiss;
+    const lead = result.ranked[0];
+    const most = result.ranked.filter((d, i) => i === 0 || d.band === "strong");
+    const miss = result.cannotMiss.filter((d) => d.id !== lead?.id);
+    const missIds = new Set(miss.map((d) => d.id));
+    const expanded = result.ranked.filter(
+      (d) => d.band === "possible" && d.id !== lead?.id && !missIds.has(d.id)
+    );
+    const fhirBundle = buildFhirBundle(p);
+    const fhirCounts = bundleResourceCounts(fhirBundle);
 
     return `
       <div class="grid-2">
@@ -367,8 +419,22 @@ export function mount(root: HTMLElement): void {
             <p class="meta">${escapeHtml(p.similar.freshness)}</p>
           </div>
           <div class="card">
-            <h3>FHIR-shaped chips</h3>
+            <h3>FHIR export <span class="badge badge-cyan">Read-only</span></h3>
+            <p class="meta">Synthetic R4 collection for this chart. Identifiers only — no personal names, no live EHR write.</p>
+            <div class="chips" style="margin:10px 0">
+              ${Object.entries(fhirCounts)
+                .map(([kind, n]) => `<span class="chip">${escapeHtml(kind)} × ${n}</span>`)
+                .join("")}
+            </div>
             <div class="chips">${p.fhir.map((c) => `<span class="chip">${c.resourceType} · ${escapeHtml(c.label)}</span>`).join("")}</div>
+            <div class="btn-row">
+              <button class="btn" type="button" data-fhir-export>Download FHIR bundle</button>
+              ${
+                state.lastExport
+                  ? `<span class="badge badge-high">Saved ${escapeHtml(state.lastExport)}</span>`
+                  : ""
+              }
+            </div>
           </div>
           ${
             state.role === "student"
@@ -410,9 +476,9 @@ export function mount(root: HTMLElement): void {
             .join("");
     return `<div class="card">
       <h3>NOMI copilot
-        <span>
-          <button class="btn-ghost" data-mode="quick">Quick</button>
-          <button class="btn-ghost" data-mode="thorough">Thorough</button>
+        <span class="mode-toggle" role="group" aria-label="Copilot depth">
+          <button class="btn-ghost${state.mode === "quick" ? " active" : ""}" data-mode="quick" aria-pressed="${state.mode === "quick"}">Quick</button>
+          <button class="btn-ghost${state.mode === "thorough" ? " active" : ""}" data-mode="thorough" aria-pressed="${state.mode === "thorough"}">Thorough</button>
         </span>
       </h3>
       <div id="thread">${turns}</div>
@@ -445,7 +511,7 @@ export function mount(root: HTMLElement): void {
           n.kind === "diagnosis" ? "#22d3ee" : n.kind === "finding" ? "#34d399" : n.kind === "drug" ? "#fbbf24" : n.kind === "trial" ? "#c084fc" : "#94a3b8";
         const showLabel = !selected || n.id === selected || Boolean(neighbor?.has(n.id));
         const dim = selected && n.id !== selected && !neighbor?.has(n.id) ? 0.25 : 1;
-        return `<g data-node="${escapeHtml(n.id)}" opacity="${dim}" style="cursor:pointer">
+        return `<g data-node="${escapeHtml(n.id)}" role="button" tabindex="0" aria-label="${escapeHtml(n.label)} (${n.kind})" opacity="${dim}" style="cursor:pointer">
           <circle cx="${n.x}" cy="${n.y}" r="8" fill="${color}"></circle>
           ${showLabel ? `<text class="node-label" x="${n.x + 10}" y="${n.y + 4}">${escapeHtml(n.label)}</text>` : ""}
         </g>`;
@@ -471,7 +537,7 @@ export function mount(root: HTMLElement): void {
         <input id="roster-q" type="search" value="${escapeHtml(state.rosterQuery)}" placeholder="Filter by id, problem, concern…" aria-label="Filter roster" />
         <select id="roster-unit">${units.map((u) => `<option value="${escapeHtml(u)}" ${u === state.rosterUnit ? "selected" : ""}>${u || "All units"}</option>`).join("")}</select>
       </div>
-      <table class="table">
+      <div class="table-wrap"><table class="table">
         <thead><tr><th>Chart</th><th>Concern</th><th>Unit</th><th>Lead draft</th><th></th></tr></thead>
         <tbody>
           ${rows
@@ -487,7 +553,7 @@ export function mount(root: HTMLElement): void {
             })
             .join("")}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
 
@@ -574,7 +640,7 @@ export function mount(root: HTMLElement): void {
     return `<div class="card">
       <h3>Immutable session log</h3>
       <input id="audit-q" type="search" value="${escapeHtml(state.auditQuery)}" placeholder="Filter events…" aria-label="Filter audit" />
-      <table class="table">
+      <div class="table-wrap"><table class="table">
         <thead><tr><th>When</th><th>Kind</th><th>Detail</th><th>Role</th><th>Chart</th></tr></thead>
         <tbody>
           ${rows
@@ -586,7 +652,7 @@ export function mount(root: HTMLElement): void {
             )
             .join("")}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
 
@@ -624,18 +690,20 @@ export function mount(root: HTMLElement): void {
                   ? renderMessages()
                   : renderAudit();
 
+    const overlayOpen = state.navOpen || state.panelOpen;
     root.innerHTML = `
       <div class="disclaimer-bar">NOMI is a demonstration prototype. <strong>Not medical advice</strong>, not a diagnosis, not a medical device, and not a substitute for a licensed clinician. Human review is required before any documentation, order, prescription, or patient message.</div>
       <div class="app">
         ${renderSidebar()}
         <main class="main" id="main">
           <div class="mobile-bar">
-            <button class="btn-ghost" data-cmd="nav">Menu</button>
-            <button class="btn-ghost" data-cmd="panel">Evidence</button>
+            <button class="btn-ghost" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav">Menu</button>
+            <div class="patient-chip">${p.id} · ${p.ageYears}y</div>
+            <button class="btn-ghost" data-cmd="panel" aria-expanded="${state.panelOpen}">Evidence</button>
           </div>
           <div class="header">
             <div>
-              <h1>${TITLES[state.view]}</h1>
+              <h1 tabindex="-1">${TITLES[state.view]}</h1>
               <div class="meta">${p.id} · ${p.ageYears}y / ${p.sex[0].toUpperCase()} · MRN ${p.mrn} · ${escapeHtml(p.chiefConcern)}</div>
             </div>
             <div class="live-pill">NOMI-3 demo · ${state.role}</div>
@@ -645,6 +713,15 @@ export function mount(root: HTMLElement): void {
         </main>
         ${renderPanel()}
       </div>
+      <div class="scrim${overlayOpen ? " show" : ""}" data-cmd="close-overlays" ${overlayOpen ? "" : "hidden"}></div>
+      <nav class="bottom-nav" aria-label="Primary mobile">
+        ${VIEWS.map(
+          (v) =>
+            `<button class="bottom-nav-item${state.view === v.id ? " active" : ""}" data-nav="${v.id}" ${
+              state.view === v.id ? 'aria-current="page"' : ""
+            }>${v.label}</button>`
+        ).join("")}
+      </nav>
       ${renderPalette()}`;
 
     bind();
@@ -675,8 +752,15 @@ export function mount(root: HTMLElement): void {
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const input = form.querySelector("input");
-        if (input) ask(input.value);
+        if (input) ask(input.value, form.dataset.form === "rail");
       });
+    });
+    root.querySelector<HTMLButtonElement>("[data-fhir-export]")?.addEventListener("click", () => {
+      const current = patient();
+      downloadFhir(current);
+      state.lastExport = fhirFilename(current.id);
+      log("export", `Downloaded FHIR bundle ${state.lastExport}`);
+      render();
     });
     root.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -686,19 +770,22 @@ export function mount(root: HTMLElement): void {
       });
     });
     root.querySelectorAll<SVGGElement>("[data-node]").forEach((g) => {
-      g.addEventListener("click", () => {
+      const select = () => {
         state.graphSelected = g.getAttribute("data-node");
         render();
+      };
+      g.addEventListener("click", select);
+      g.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          select();
+        }
       });
     });
     root.querySelector("#roster-q")?.addEventListener("input", (e) => {
       state.rosterQuery = (e.target as HTMLInputElement).value;
+      focusAfterRender = "roster";
       render();
-      const el = document.getElementById("roster-q") as HTMLInputElement | null;
-      if (el) {
-        el.focus();
-        el.setSelectionRange(state.rosterQuery.length, state.rosterQuery.length);
-      }
     });
     root.querySelector("#roster-unit")?.addEventListener("change", (e) => {
       state.rosterUnit = (e.target as HTMLSelectElement).value;
@@ -727,17 +814,30 @@ export function mount(root: HTMLElement): void {
     });
     root.querySelector("#audit-q")?.addEventListener("input", (e) => {
       state.auditQuery = (e.target as HTMLInputElement).value;
+      focusAfterRender = "audit";
       render();
-      document.getElementById("audit-q")?.focus();
     });
     root.querySelectorAll<HTMLButtonElement>("[data-cmd]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        if (btn.dataset.cmd === "palette") state.commandOpen = true;
-        if (btn.dataset.cmd === "nav") state.navOpen = !state.navOpen;
-        if (btn.dataset.cmd === "panel") state.panelOpen = !state.panelOpen;
+        if (btn.dataset.cmd === "palette") {
+          state.commandOpen = true;
+          focusAfterRender = "palette";
+        }
+        if (btn.dataset.cmd === "nav") {
+          state.navOpen = !state.navOpen;
+          if (state.navOpen) state.panelOpen = false;
+        }
+        if (btn.dataset.cmd === "panel") {
+          state.panelOpen = !state.panelOpen;
+          if (state.panelOpen) state.navOpen = false;
+        }
+        if (btn.dataset.cmd === "close-overlays") closeOverlays();
         render();
-        document.getElementById("palette-q")?.focus();
       });
+    });
+    root.querySelector("[data-cmd='close-overlays']")?.addEventListener("click", () => {
+      closeOverlays();
+      render();
     });
     root.querySelector("[data-close-palette]")?.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).hasAttribute("data-close-palette")) {
@@ -747,13 +847,33 @@ export function mount(root: HTMLElement): void {
     });
     root.querySelector("#palette-q")?.addEventListener("input", (e) => {
       state.commandQuery = (e.target as HTMLInputElement).value;
+      focusAfterRender = "palette";
       render();
+    });
+    if (focusAfterRender === "main") {
+      const heading = root.querySelector("h1");
+      if (heading instanceof HTMLElement) heading.focus();
+    } else if (focusAfterRender === "roster") {
+      const el = document.getElementById("roster-q") as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(state.rosterQuery.length, state.rosterQuery.length);
+      }
+    } else if (focusAfterRender === "audit") {
+      const el = document.getElementById("audit-q") as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(state.auditQuery.length, state.auditQuery.length);
+      }
+    } else if (focusAfterRender === "palette") {
       const el = document.getElementById("palette-q") as HTMLInputElement | null;
       if (el) {
         el.focus();
         el.setSelectionRange(state.commandQuery.length, state.commandQuery.length);
       }
-    });
+    }
+    focusAfterRender = null;
+
     root.querySelectorAll<HTMLButtonElement>("[data-hit-kind]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const kind = btn.dataset.hitKind;
@@ -779,7 +899,9 @@ export function mount(root: HTMLElement): void {
     if (next.patientId !== state.patientId) {
       state.patientId = next.patientId;
       state.chat = [];
+      state.graphSelected = null;
     }
+    focusAfterRender = "main";
     render();
   });
 
@@ -787,11 +909,11 @@ export function mount(root: HTMLElement): void {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       state.commandOpen = true;
+      focusAfterRender = "palette";
       render();
-      document.getElementById("palette-q")?.focus();
     }
-    if (e.key === "Escape" && state.commandOpen) {
-      state.commandOpen = false;
+    if (e.key === "Escape" && (state.commandOpen || state.navOpen || state.panelOpen)) {
+      closeOverlays();
       render();
     }
   });
