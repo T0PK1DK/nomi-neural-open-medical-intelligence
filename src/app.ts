@@ -64,14 +64,14 @@ interface State {
 /** Bottom bar on phones: four primary views plus More, which opens the full menu. */
 const MOBILE_PRIMARY: ViewId[] = ["dashboard", "copilot", "patients", "monitoring"];
 
-const VIEWS: { id: ViewId; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "copilot", label: "AI Copilot" },
-  { id: "graph", label: "Knowledge graph" },
-  { id: "patients", label: "Patients" },
-  { id: "monitoring", label: "Monitoring" },
-  { id: "messages", label: "Messages" },
-  { id: "audit", label: "Audit" }
+const VIEWS: { id: ViewId; label: string; short: string }[] = [
+  { id: "dashboard", label: "Dashboard", short: "Home" },
+  { id: "copilot", label: "AI Copilot", short: "Copilot" },
+  { id: "graph", label: "Knowledge graph", short: "Graph" },
+  { id: "patients", label: "Patients", short: "Roster" },
+  { id: "monitoring", label: "Monitoring", short: "Monitor" },
+  { id: "messages", label: "Messages", short: "Inbox" },
+  { id: "audit", label: "Audit", short: "Audit" }
 ];
 
 const TITLES: Record<ViewId, string> = {
@@ -930,10 +930,10 @@ export function mount(root: HTMLElement): void {
             (v) =>
               `<button class="bottom-nav-item${state.view === v.id ? " active" : ""}" data-nav="${v.id}" ${
                 state.view === v.id ? 'aria-current="page"' : ""
-              }>${v.id === "copilot" ? "Copilot" : v.label}</button>`
+              }><span class="nav-full">${v.id === "copilot" ? "Copilot" : v.label}</span><span class="nav-short">${v.short}</span></button>`
           )
           .join("")}
-        <button class="bottom-nav-item${moreActive ? " active" : ""}" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.label) : "More"}</button>
+        <button class="bottom-nav-item${moreActive ? " active" : ""}" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav"><span class="nav-full">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.label) : "More"}</span><span class="nav-short">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.short) : "More"}</span></button>
       </nav>
       ${renderPalette()}`;
 
