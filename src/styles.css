@@ -27,7 +27,8 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; max-width: 100%; overflow-x: hidden; }
+html { height: 100%; max-width: 100%; overflow-x: hidden; }
+body { min-height: 100%; max-width: 100%; overflow-x: hidden; }
 body {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: var(--fs-base);
@@ -375,11 +376,13 @@ select:focus, input:focus, textarea:focus { outline: 2px solid rgba(34,211,238,0
   .nav-item { min-height: 40px; }
 }
 @media (max-width: 760px) {
+  html, body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
   .disc-full { display: none; }
   .disc-short { display: inline; }
   .disclaimer-bar { padding: 6px 10px; }
   .live-pill { display: none; }
-  .app { grid-template-columns: 1fr; min-height: calc(100vh - 30px); }
+  .app { grid-template-columns: 1fr; min-height: auto; }
+  .main { overflow: visible; }
   .sidebar { display: none; }
   .sidebar.open {
     display: flex;
