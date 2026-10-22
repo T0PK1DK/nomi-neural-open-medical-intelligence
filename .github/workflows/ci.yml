@@ -16,3 +16,29 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+  fhir-validate:
+    name: FHIR R4 validation (HAPI 7.6.0, offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: scripts/fhir-validate/pom.xml
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: 3.9.9
+      - run: npm ci
+      - name: Dump every demo chart's bundle
+        run: npx vite-node scripts/fhir-validate/dump-bundles.ts scripts/fhir-validate/target/bundles
+      - name: Validate (fails on any ERROR)
+        working-directory: scripts/fhir-validate
+        run: mvn -B -q compile exec:java -Dexec.args=target/bundles

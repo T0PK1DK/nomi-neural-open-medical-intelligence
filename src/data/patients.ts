@@ -90,13 +90,6 @@ export const PATIENTS: Patient[] = [
           "We are treating fluid overload and watching kidney function and potassium. This draft is not medical advice and must be reviewed before release."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-88472", label: "Adult 68y · male" },
-      { resourceType: "Condition", id: "cond-hf", label: "I50.9 Heart failure, unspecified (working)" },
-      { resourceType: "Observation", id: "obs-bnp", label: "BNP 832 pg/mL" },
-      { resourceType: "MedicationRequest", id: "med-ace", label: "Lisinopril 10 mg daily" },
-      { resourceType: "AllergyIntolerance", id: "alg-nkda", label: "NKDA" }
-    ],
     similar: {
       label: "Adults 65–75 with BNP 600–1000 and eGFR 30–50",
       n: 214,
@@ -158,12 +151,6 @@ export const PATIENTS: Patient[] = [
         body: "Pretest is not low. Contrast allergy is listed. Draft only — no order placed by NOMI."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-22019", label: "Adult 54y · female" },
-      { resourceType: "Condition", id: "cond-pe", label: "Working: PE not excluded" },
-      { resourceType: "Observation", id: "obs-dd", label: "D-dimer 1.8 mg/L" },
-      { resourceType: "AllergyIntolerance", id: "alg-cx", label: "Iodinated contrast — urticaria" }
-    ],
     similar: {
       label: "Adults with tachycardia + hypoxia + travel + raised D-dimer",
       n: 88,
@@ -218,12 +205,6 @@ export const PATIENTS: Patient[] = [
         needsReview: false,
         body: "Fluids, potassium plan, insulin infusion — clinician-owned. NOMI will not start insulin."
       }
-    ],
-    fhir: [
-      { resourceType: "Patient", id: "P-44108", label: "Adult 31y · female" },
-      { resourceType: "Condition", id: "cond-dka", label: "E10.10 Type 1 diabetes with DKA (working)" },
-      { resourceType: "Observation", id: "obs-glu", label: "Glucose 428 mg/dL" },
-      { resourceType: "MedicationRequest", id: "med-ins", label: "Insulin regimen (home)" }
     ],
     similar: {
       label: "Adults 18–40 with gap acidosis + glucose >350",
@@ -282,12 +263,6 @@ export const PATIENTS: Patient[] = [
         body: "Hour-1 items are a checklist, not orders. Escalate if SBP stays <90 after the first fluid challenge — clinician call."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-77301", label: "Adult 77y · female" },
-      { resourceType: "Condition", id: "cond-sep", label: "Sepsis, unspecified organism (working)" },
-      { resourceType: "Observation", id: "obs-lac", label: "Lactate 2.8 mmol/L" },
-      { resourceType: "AllergyIntolerance", id: "alg-pcn", label: "Penicillin — rash" }
-    ],
     similar: {
       label: "Adults ≥70 with fever + lactate ≥2 + SBP <100",
       n: 140,
@@ -337,10 +312,6 @@ export const PATIENTS: Patient[] = [
         needsReview: true,
         draft: "Return precautions for chest pain. This is a draft and is not medical advice."
       }
-    ],
-    fhir: [
-      { resourceType: "Patient", id: "P-10955", label: "Adult 45y · male" },
-      { resourceType: "Observation", id: "obs-trop", label: "Troponin I 0.01 ng/mL" }
     ],
     similar: {
       label: "Adults 40–50 with non-ischemic ECG + undetectable troponin",

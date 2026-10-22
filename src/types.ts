@@ -143,6 +143,7 @@ export interface AuditEvent {
   role: Role;
 }
 
+/** Provenance chip derived from an exported FHIR resource (see `fhirChips` in src/engine/fhir.ts). */
 export interface FhirChip {
   resourceType: "Patient" | "Condition" | "Observation" | "MedicationRequest" | "AllergyIntolerance";
   id: string;
@@ -198,7 +199,6 @@ export interface Patient {
   series: MonitoringPoint[];
   notes: string[];
   threads: MessageThread[];
-  fhir: FhirChip[];
   similar: SimilarCohort;
   teachingPearl: string;
   trialHints: string[];

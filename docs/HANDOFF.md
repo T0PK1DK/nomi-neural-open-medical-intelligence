@@ -1,5 +1,31 @@
 # Handoff — ready prompt for the next coding agent
 
+## 2026-10-22 FHIR follow-ups (branch `claude/nomi-fhir-followups`, built on `claude/nomi-review` / PR #3)
+
+### What shipped
+- **Lab ranges and flags in the export.** Lab Observations now carry `referenceRange` (UCUM `low`/`high` when the unit maps, `text` always; text only when it does not) and `interpretation` coded with `v3-ObservationInterpretation` L / N / H. `parseFhirBundle` reads them back into `refLow` / `refHigh` / `flag`; older exports without them still import.
+- **Provenance chips derived from the export (data-model change).** The hand-written `Patient.fhir` array is removed. `fhirChips(patient)` in `src/engine/fhir.ts` builds chips from `buildFhirBundle`, so each one names a real `ResourceType/id` in the download and its label is that resource's narrative summary. The dashboard FHIR card renders them (`data-fhir-ref`). Vital-sign Observations are left out of the chip strip only.
+- **Narrative on every resource.** `Resource.text` with status `generated` and an escaped one-line XHTML div. Clears every dom-6 warning.
+- **Offline FHIR validation in CI.** `scripts/fhir-validate/` holds a HAPI FHIR 7.6.0 harness (DefaultProfileValidationSupport, CommonCodeSystemsTerminologyService, InMemoryTerminologyServerValidationSupport, SnapshotGeneratingValidationSupport; no network terminology). The new `fhir-validate` CI job dumps all five demo charts and fails on any ERROR. The `test-and-build` job is unchanged.
+
+Run it locally (Java 21 + Maven):
+
+```bash
+npx vite-node scripts/fhir-validate/dump-bundles.ts scripts/fhir-validate/target/bundles
+cd scripts/fhir-validate && mvn -B -q compile exec:java -Dexec.args=target/bundles
+```
+
+Validator, all 5 charts: before 0 errors / 194 warnings (86 dom-6 + 108 "observations should have a performer"); after 0 errors / 108 warnings (performer only).
+
+### Skipped and why
+- **Observation.performer warnings.** These are synthetic charts with no real performer. Adding a made-up Practitioner/Organization would be invented data, so the best-practice warning stays.
+- **No new LOINC codes for labs.** Labs keep the local demo code system; no code was added that was not certain.
+
+### Next
+- eGFR is exported with UCUM `mL/min`; the clinically usual unit is `mL/min/{1.73_m2}`. Change the chart unit and the UCUM map together if wanted.
+- Overlap: draft PR #4 (`leon/overnight-review`) also edits `src/app.ts` and `src/engine/fhir.ts`. Rebase whichever lands second.
+
+
 Copy everything under **Prompt** into a new Claude / Cursor session. Do not deploy. Do not add a PIN or passcode gate. Do not put personal names in public copy.
 
 ## Prompt

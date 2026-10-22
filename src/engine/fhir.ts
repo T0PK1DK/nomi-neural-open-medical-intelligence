@@ -1,4 +1,4 @@
-import type { Patient } from "../types";
+import type { FhirChip, Lab, Patient } from "../types";
 
 export type FhirResourceType =
   | "Patient"
@@ -35,6 +35,11 @@ export interface FhirObservationSlice {
   value: number;
   unit: string;
   category: "laboratory" | "vital-signs";
+  /** Lab reference range, when the Observation carries one with numeric bounds. */
+  refLow?: number;
+  refHigh?: number;
+  /** Lab flag from Observation.interpretation (L / N / H). */
+  flag?: Lab["flag"];
 }
 
 export interface FhirMedicationSlice {
@@ -76,6 +81,16 @@ const UCUM = "http://unitsofmeasure.org";
 const SNOMED = "http://snomed.info/sct";
 const OBS_CATEGORY = "http://terminology.hl7.org/CodeSystem/observation-category";
 const HL7_SD = "http://hl7.org/fhir/StructureDefinition";
+const INTERPRETATION = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+const XHTML_NS = "http://www.w3.org/1999/xhtml";
+
+/** v3 ObservationInterpretation codes for the chart's lab flags. */
+const INTERPRETATION_CODES: Record<Lab["flag"], { code: string; display: string }> = {
+  low: { code: "L", display: "Low" },
+  normal: { code: "N", display: "Normal" },
+  high: { code: "H", display: "High" }
+};
+const FLAG_BY_CODE: Record<string, Lab["flag"]> = { L: "low", N: "normal", H: "high" };
 
 /** Chart units mapped to UCUM codes. Units missing here are exported as text only. */
 const UCUM_CODES: Record<string, string> = {
@@ -158,10 +173,13 @@ function fhirGender(sex: Patient["sex"]): "male" | "female" | "unknown" {
   return "unknown";
 }
 
+/** Wraps a resource for the Bundle and gives it a generated narrative (fixes dom-6). */
 function entry(resource: FhirResource): FhirBundleEntry {
+  const { resourceType, id, ...rest } = resource;
+  const withText = { resourceType, id, text: narrative(summarizeResource(resource)), ...rest } as FhirResource;
   return {
-    fullUrl: `${FHIR_BASE}/${resource.resourceType}/${resource.id}`,
-    resource
+    fullUrl: `${FHIR_BASE}/${resourceType}/${id}`,
+    resource: withText
   };
 }
 
@@ -177,6 +195,72 @@ function slug(value: string, fallback: string): string {
 function quantity(value: number, unit: string): Record<string, unknown> {
   const code = UCUM_CODES[unit];
   return code ? { value, unit, system: UCUM, code } : { value, unit };
+}
+
+/**
+ * R4 Observation.referenceRange. Bounds are SimpleQuantity with a UCUM code when
+ * the chart unit maps; otherwise the range is carried as text only, so no
+ * unit code is invented.
+ */
+function referenceRange(lab: Lab): Record<string, unknown> {
+  const text = `${lab.refLow}–${lab.refHigh} ${lab.unit}`.trim();
+  if (!UCUM_CODES[lab.unit]) return { text };
+  return { low: quantity(lab.refLow, lab.unit), high: quantity(lab.refHigh, lab.unit), text };
+}
+
+/** Escape text for an XHTML narrative div (element content and attribute safe). */
+export function escapeXhtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Generated R4 narrative (Resource.text) holding a one-line, escaped summary. */
+export function narrative(summary: string): { status: "generated"; div: string } {
+  return { status: "generated", div: `<div xmlns="${XHTML_NS}">${escapeXhtml(summary)}</div>` };
+}
+
+function formatQty(q: unknown): string {
+  if (!isRecord(q) || typeof q.value !== "number") return "";
+  return typeof q.unit === "string" && q.unit ? `${q.value} ${q.unit}` : String(q.value);
+}
+
+/** One-line plain-text summary of an exported resource; also used for provenance chips. */
+export function summarizeResource(resource: FhirResource): string {
+  const r = resource as Record<string, unknown>;
+  switch (resource.resourceType) {
+    case "Patient": {
+      const ext = Array.isArray(r.extension) ? r.extension.filter(isRecord) : [];
+      const age = ext.find((e) => typeof e.valueInteger === "number")?.valueInteger;
+      return `Synthetic patient ${resource.id}${typeof age === "number" ? ` · ${age}y` : ""} · ${String(r.gender ?? "unknown")}`;
+    }
+    case "Condition":
+      return `Problem: ${textOf(r.code) || resource.id}`;
+    case "Observation": {
+      const name = textOf(r.code) || resource.id;
+      if (Array.isArray(r.component)) {
+        const parts = r.component.filter(isRecord).map((c) => formatQty(c.valueQuantity)).filter(Boolean);
+        return `${name}: ${parts.join(" / ")}`;
+      }
+      const flag = Array.isArray(r.interpretation) ? textOf(r.interpretation[0]) : "";
+      const range = Array.isArray(r.referenceRange) && isRecord(r.referenceRange[0]) ? r.referenceRange[0].text : "";
+      return [`${name}: ${formatQty(r.valueQuantity)}`, flag, typeof range === "string" && range ? `ref ${range}` : ""]
+        .filter(Boolean)
+        .join(" · ");
+    }
+    case "MedicationRequest": {
+      const dosage = Array.isArray(r.dosageInstruction) && isRecord(r.dosageInstruction[0]) ? r.dosageInstruction[0] : {};
+      return `Medication: ${textOf(r.medicationCodeableConcept)} ${typeof dosage.text === "string" ? dosage.text : ""}`.trim();
+    }
+    case "AllergyIntolerance": {
+      const reaction = Array.isArray(r.reaction) && isRecord(r.reaction[0]) ? r.reaction[0] : undefined;
+      const manifestation = reaction && Array.isArray(reaction.manifestation) ? textOf(reaction.manifestation[0]) : "";
+      return `Allergy: ${textOf(r.code)}${manifestation ? ` (${manifestation})` : ""}`;
+    }
+  }
 }
 
 function minutesBefore(now: Date, minutes: number): string {
@@ -250,7 +334,14 @@ export function buildFhirBundle(patient: Patient, now = new Date()): FhirBundle 
         },
         subject,
         effectiveDateTime: labsAt,
-        valueQuantity: quantity(lab.value, lab.unit)
+        valueQuantity: quantity(lab.value, lab.unit),
+        interpretation: [
+          {
+            coding: [{ system: INTERPRETATION, ...INTERPRETATION_CODES[lab.flag] }],
+            text: INTERPRETATION_CODES[lab.flag].display
+          }
+        ],
+        referenceRange: [referenceRange(lab)]
       })
     );
   }
@@ -420,6 +511,33 @@ function categoryOf(resource: Record<string, unknown>): "laboratory" | "vital-si
   return "laboratory";
 }
 
+/** Reference range bounds and L/N/H flag, when present. Older exports have neither and stay importable. */
+function rangeAndFlagOf(resource: Record<string, unknown>): Pick<FhirObservationSlice, "refLow" | "refHigh" | "flag"> {
+  const out: Pick<FhirObservationSlice, "refLow" | "refHigh" | "flag"> = {};
+  const range = Array.isArray(resource.referenceRange) && isRecord(resource.referenceRange[0]) ? resource.referenceRange[0] : undefined;
+  if (range) {
+    if (isRecord(range.low) && typeof range.low.value === "number") out.refLow = range.low.value;
+    if (isRecord(range.high) && typeof range.high.value === "number") out.refHigh = range.high.value;
+    if ((out.refLow === undefined || out.refHigh === undefined) && typeof range.text === "string") {
+      const m = /^\s*(-?\d+(?:\.\d+)?)\s*[–-]\s*(-?\d+(?:\.\d+)?)/.exec(range.text);
+      if (m) {
+        out.refLow ??= Number(m[1]);
+        out.refHigh ??= Number(m[2]);
+      }
+    }
+  }
+  const interp = Array.isArray(resource.interpretation) ? resource.interpretation.filter(isRecord) : [];
+  for (const concept of interp) {
+    const codings = Array.isArray(concept.coding) ? concept.coding.filter(isRecord) : [];
+    const hit = codings.find((c) => c.system === INTERPRETATION && typeof c.code === "string" && c.code in FLAG_BY_CODE);
+    if (hit) {
+      out.flag = FLAG_BY_CODE[hit.code as string];
+      break;
+    }
+  }
+  return out;
+}
+
 /** One slice per value: the Observation's own value, or one per component (e.g. a blood pressure panel). */
 function observationSlices(resource: Record<string, unknown>): FhirObservationSlice[] {
   if (typeof resource.id !== "string") return [];
@@ -427,7 +545,7 @@ function observationSlices(resource: Record<string, unknown>): FhirObservationSl
   const category = categoryOf(resource);
   const own = quantityOf(resource);
   if (own) {
-    return [{ id, name: textOf(resource.code) || id, value: own.value, unit: own.unit, category }];
+    return [{ id, name: textOf(resource.code) || id, value: own.value, unit: own.unit, category, ...rangeAndFlagOf(resource) }];
   }
   const components = Array.isArray(resource.component) ? resource.component.filter(isRecord) : [];
   return components.flatMap((component) => {
@@ -534,4 +652,17 @@ export function bundleResourceCounts(bundle: FhirBundle): Record<string, number>
     counts[kind] = (counts[kind] ?? 0) + 1;
   }
   return counts;
+}
+
+/**
+ * Provenance chips derived from the exported bundle, so every chip names a
+ * resource that really exists in the download (resourceType + id) and its
+ * label is the same one-line summary as that resource's narrative. Vital-sign
+ * Observations are left out to keep the strip short; they are still exported.
+ */
+export function fhirChips(patient: Patient, now = new Date()): FhirChip[] {
+  return buildFhirBundle(patient, now)
+    .entry.map((e) => e.resource)
+    .filter((r) => r.resourceType !== "Observation" || categoryOf(r as Record<string, unknown>) === "laboratory")
+    .map((r) => ({ resourceType: r.resourceType, id: r.id, label: summarizeResource(r) }));
 }

@@ -78,6 +78,20 @@ describe("dashboard loading and error states", () => {
 });
 
 describe("FHIR export states", () => {
+  it("renders provenance chips that each name an exported resource", async () => {
+    const { buildFhirBundle } = await import("../src/engine/fhir");
+    const { patientById } = await import("../src/data/patients");
+    const root = start("#/dashboard/P-88472");
+    flush();
+    const refs = [...root.querySelectorAll<HTMLElement>("[data-fhir-ref]")].map((el) => el.dataset.fhirRef);
+    const exported = new Set(
+      buildFhirBundle(patientById("P-88472")!).entry.map((e) => `${e.resource.resourceType}/${e.resource.id}`)
+    );
+    expect(refs.length).toBeGreaterThan(0);
+    for (const ref of refs) expect(exported.has(ref!)).toBe(true);
+    expect(root.textContent).not.toContain("I50.9");
+  });
+
   it("confirms a successful download and logs it", () => {
     URL.createObjectURL = vi.fn(() => "blob:nomi");
     URL.revokeObjectURL = vi.fn();

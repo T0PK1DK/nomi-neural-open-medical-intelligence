@@ -5,6 +5,7 @@ import { answerQuestion } from "./engine/copilot";
 import {
   buildFhirBundle,
   bundleResourceCounts,
+  fhirChips,
   fhirFilename,
   serializeFhirBundle
 } from "./engine/fhir";
@@ -522,6 +523,14 @@ export function mount(root: HTMLElement): void {
                 .map(([kind, n]) => `<span class="chip">${escapeHtml(kind)} × ${n}</span>`)
                 .join("")}
             </div>
+            <ul class="chips fhir-provenance" aria-label="Exported resources" style="list-style:none;padding:0;margin:0 0 10px">
+              ${fhirChips(p)
+                .map(
+                  (c) =>
+                    `<li class="chip" data-fhir-ref="${escapeHtml(`${c.resourceType}/${c.id}`)}" title="${escapeHtml(`${c.resourceType}/${c.id}`)}">${escapeHtml(c.label)}</li>`
+                )
+                .join("")}
+            </ul>
             <div class="btn-row">
               <button class="btn" type="button" data-fhir-export>Download FHIR bundle</button>
               ${
