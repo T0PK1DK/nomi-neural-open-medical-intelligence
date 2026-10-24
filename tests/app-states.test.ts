@@ -113,6 +113,22 @@ describe("FHIR export states", () => {
     expect(root.querySelector(".error-state[role=alert]")?.textContent).toContain("Downloads are blocked");
     expect(root.textContent).not.toContain("Saved p-88472");
   });
+
+  it("clears the last download when the hash patient changes", () => {
+    URL.createObjectURL = vi.fn(() => "blob:nomi");
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const root = start("#/dashboard/P-88472");
+    flush();
+    root.querySelector<HTMLButtonElement>("[data-fhir-export]")!.click();
+    expect(root.querySelector("[role=status].badge-high")?.textContent).toBe("Saved p-88472-fhir-bundle.json");
+
+    history.replaceState(null, "", "#/dashboard/P-22019");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    flush();
+    expect(root.textContent).not.toContain("Saved p-88472");
+    expect(root.querySelector("[data-fhir-export]")).toBeTruthy();
+  });
 });
 
 describe("copilot states", () => {
@@ -146,6 +162,22 @@ describe("copilot states", () => {
     expect(root.querySelector(".msg.error")).toBeNull();
     expect(root.querySelectorAll("#thread .msg.user")).toHaveLength(1);
     expect(root.querySelectorAll("#thread .msg.ai")).toHaveLength(1);
+  });
+});
+
+describe("monitoring badges", () => {
+  it("colors the HF congestion badge from its own band, not a fixed moderate", () => {
+    const moderate = start("#/monitoring/P-88472");
+    flush();
+    const hfModerate = [...moderate.querySelectorAll(".stat")].find((el) => el.textContent?.includes("HF congestion"));
+    expect(hfModerate?.querySelector(".badge")?.className).toContain("badge-med");
+    expect(hfModerate?.querySelector(".badge")?.textContent).toBe("moderate");
+
+    const low = start("#/monitoring/P-10955");
+    flush();
+    const hfLow = [...low.querySelectorAll(".stat")].find((el) => el.textContent?.includes("HF congestion"));
+    expect(hfLow?.querySelector(".badge")?.className).toContain("badge-high");
+    expect(hfLow?.querySelector(".badge")?.textContent).toBe("low");
   });
 });
 

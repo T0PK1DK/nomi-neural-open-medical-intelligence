@@ -64,14 +64,14 @@ interface State {
 /** Bottom bar on phones: four primary views plus More, which opens the full menu. */
 const MOBILE_PRIMARY: ViewId[] = ["dashboard", "copilot", "patients", "monitoring"];
 
-const VIEWS: { id: ViewId; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "copilot", label: "AI Copilot" },
-  { id: "graph", label: "Knowledge graph" },
-  { id: "patients", label: "Patients" },
-  { id: "monitoring", label: "Monitoring" },
-  { id: "messages", label: "Messages" },
-  { id: "audit", label: "Audit" }
+const VIEWS: { id: ViewId; label: string; short: string }[] = [
+  { id: "dashboard", label: "Dashboard", short: "Home" },
+  { id: "copilot", label: "AI Copilot", short: "Copilot" },
+  { id: "graph", label: "Knowledge graph", short: "Graph" },
+  { id: "patients", label: "Patients", short: "Roster" },
+  { id: "monitoring", label: "Monitoring", short: "Monitor" },
+  { id: "messages", label: "Messages", short: "Inbox" },
+  { id: "audit", label: "Audit", short: "Audit" }
 ];
 
 const TITLES: Record<ViewId, string> = {
@@ -86,6 +86,13 @@ const TITLES: Record<ViewId, string> = {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error && err.message ? err.message : "Unknown error";
+}
+
+/** Map a risk/score band onto the existing badge palette (low = reassuring green). */
+function bandBadge(band: string): string {
+  if (band === "low") return "high";
+  if (band === "moderate") return "med";
+  return "low";
 }
 
 /** Run `fn` after the browser has painted the current frame, so loading states are visible. */
@@ -774,8 +781,8 @@ export function mount(root: HTMLElement): void {
     });
     return `
       <div class="grid-3">
-        <section class="card stat"><h2 class="card-title">${escapeHtml(news.name)}</h2><div class="stat-value">${news.value}<span class="meta"> / ${news.max}</span></div><span class="badge badge-${news.band === "low" ? "high" : news.band === "moderate" ? "med" : "low"}">${news.band}</span></section>
-        <section class="card stat"><h2 class="card-title">${escapeHtml(hf.name)}</h2><div class="stat-value">${hf.value}<span class="meta"> / ${hf.max}</span></div><span class="badge badge-med">${hf.band}</span></section>
+        <section class="card stat"><h2 class="card-title">${escapeHtml(news.name)}</h2><div class="stat-value">${news.value}<span class="meta"> / ${news.max}</span></div><span class="badge badge-${bandBadge(news.band)}">${news.band}</span></section>
+        <section class="card stat"><h2 class="card-title">${escapeHtml(hf.name)}</h2><div class="stat-value">${hf.value}<span class="meta"> / ${hf.max}</span></div><span class="badge badge-${bandBadge(hf.band)}">${hf.band}</span></section>
         <section class="card stat"><h2 class="card-title">Anomalies (MAD)</h2><div class="stat-value">${anomalies.length}</div><div class="meta">Robust z ≥ 3.2</div></section>
       </div>
       <section class="card">
@@ -800,7 +807,7 @@ export function mount(root: HTMLElement): void {
                   return `<div class="row">
                     <div>${escapeHtml(a.message)}<div class="meta">${a.severity} · hour ${a.index}</div></div>
                     <div class="btn-row">
-                      <span class="badge badge-med">${st}</span>
+                      <span class="badge badge-${st === "acknowledged" ? "high" : st === "escalated" ? "low" : "med"}">${st}</span>
                       <button class="btn-ghost" data-alert="acknowledged" data-id="${id}">Acknowledge</button>
                       <button class="btn-danger" data-alert="escalated" data-id="${id}">Escalate</button>
                     </div>
@@ -930,10 +937,10 @@ export function mount(root: HTMLElement): void {
             (v) =>
               `<button class="bottom-nav-item${state.view === v.id ? " active" : ""}" data-nav="${v.id}" ${
                 state.view === v.id ? 'aria-current="page"' : ""
-              }>${v.id === "copilot" ? "Copilot" : v.label}</button>`
+              }><span class="nav-full">${v.id === "copilot" ? "Copilot" : v.label}</span><span class="nav-short">${v.short}</span></button>`
           )
           .join("")}
-        <button class="bottom-nav-item${moreActive ? " active" : ""}" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.label) : "More"}</button>
+        <button class="bottom-nav-item${moreActive ? " active" : ""}" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav"><span class="nav-full">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.label) : "More"}</span><span class="nav-short">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.short) : "More"}</span></button>
       </nav>
       ${renderPalette()}`;
 
@@ -1081,10 +1088,6 @@ export function mount(root: HTMLElement): void {
         render();
       });
     });
-    root.querySelector("[data-cmd='close-overlays']")?.addEventListener("click", () => {
-      closeOverlays();
-      render();
-    });
     root.querySelector("[data-close-palette]")?.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).hasAttribute("data-close-palette")) {
         state.commandOpen = false;
@@ -1146,6 +1149,8 @@ export function mount(root: HTMLElement): void {
       state.patientId = next.patientId;
       state.chat = [];
       state.graphSelected = null;
+      state.lastExport = null;
+      state.exportError = null;
     }
     focusAfterRender = "main";
     render();

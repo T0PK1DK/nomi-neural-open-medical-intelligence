@@ -61,6 +61,11 @@ export interface FhirChartSlice {
   allergies: string[];
 }
 
+export interface FhirValidationIssue {
+  path: string;
+  message: string;
+}
+
 /**
  * RESTful base for fullUrl. R4 resolves a relative reference such as
  * `Patient/P-88472` against the base of the referring entry's fullUrl, so the
@@ -665,4 +670,272 @@ export function fhirChips(patient: Patient, now = new Date()): FhirChip[] {
     .entry.map((e) => e.resource)
     .filter((r) => r.resourceType !== "Observation" || categoryOf(r as Record<string, unknown>) === "laboratory")
     .map((r) => ({ resourceType: r.resourceType, id: r.id, label: summarizeResource(r) }));
+}
+
+const FHIR_ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
+const INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const GENDERS = new Set(["male", "female", "other", "unknown"]);
+const OBS_STATUS = new Set([
+  "registered",
+  "preliminary",
+  "final",
+  "amended",
+  "corrected",
+  "cancelled",
+  "entered-in-error",
+  "unknown"
+]);
+const MED_STATUS = new Set([
+  "active",
+  "on-hold",
+  "cancelled",
+  "completed",
+  "entered-in-error",
+  "stopped",
+  "draft",
+  "unknown"
+]);
+const MED_INTENT = new Set([
+  "proposal",
+  "plan",
+  "order",
+  "original-order",
+  "reflex-order",
+  "filler-order",
+  "instance-order",
+  "option"
+]);
+
+function firstCoding(value: unknown): { system?: string; code?: string; display?: string } | null {
+  if (!isRecord(value)) return null;
+  const coding = value.coding;
+  if (Array.isArray(coding) && isRecord(coding[0])) {
+    return {
+      system: typeof coding[0].system === "string" ? coding[0].system : undefined,
+      code: typeof coding[0].code === "string" ? coding[0].code : undefined,
+      display: typeof coding[0].display === "string" ? coding[0].display : undefined
+    };
+  }
+  return null;
+}
+
+function isAbsoluteFullUrl(value: string): boolean {
+  return (
+    /^https?:\/\/\S+$/i.test(value) ||
+    /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ||
+    /^urn:oid:[0-2](?:\.\d+)+$/.test(value)
+  );
+}
+
+function issue(path: string, message: string): FhirValidationIssue {
+  return { path, message };
+}
+
+function firstCode(resource: Record<string, unknown>, field: string): string {
+  const raw = resource[field];
+  if (Array.isArray(raw) && isRecord(raw[0])) {
+    return firstCoding(raw[0])?.code ?? "";
+  }
+  return firstCoding(raw)?.code ?? "";
+}
+
+function quantitiesOn(resource: Record<string, unknown>): { path: string; qty: Record<string, unknown> }[] {
+  const found: { path: string; qty: Record<string, unknown> }[] = [];
+  if (isRecord(resource.valueQuantity)) found.push({ path: "valueQuantity", qty: resource.valueQuantity });
+  if (Array.isArray(resource.component)) {
+    resource.component.forEach((part, index) => {
+      if (isRecord(part) && isRecord(part.valueQuantity)) {
+        found.push({ path: `component[${index}].valueQuantity`, qty: part.valueQuantity });
+      }
+    });
+  }
+  if (Array.isArray(resource.referenceRange)) {
+    resource.referenceRange.forEach((range, index) => {
+      if (!isRecord(range)) return;
+      if (isRecord(range.low)) found.push({ path: `referenceRange[${index}].low`, qty: range.low });
+      if (isRecord(range.high)) found.push({ path: `referenceRange[${index}].high`, qty: range.high });
+    });
+  }
+  return found;
+}
+
+/**
+ * Structural FHIR R4 checks for the synthetic collection Bundle.
+ * Fitted around the exported R4 resources (BP panel, optional birthDate,
+ * text-only unmapped units). This is not a full terminology or profile validator.
+ */
+export function validateFhirR4Bundle(input: unknown): FhirValidationIssue[] {
+  const issues: FhirValidationIssue[] = [];
+  if (!isRecord(input)) {
+    return [issue("$", "Not an object")];
+  }
+  if (input.resourceType !== "Bundle") {
+    issues.push(issue("resourceType", "Must be Bundle"));
+  }
+  if (input.type !== "collection") {
+    issues.push(issue("type", "Collection export must use type=collection"));
+  }
+  if (typeof input.id === "string" && !FHIR_ID_RE.test(input.id)) {
+    issues.push(issue("id", "Bundle.id is not a valid FHIR id"));
+  }
+  if (typeof input.timestamp !== "string" || !INSTANT_RE.test(input.timestamp)) {
+    issues.push(issue("timestamp", "Bundle.timestamp must be an instant"));
+  }
+  if (!Array.isArray(input.entry) || input.entry.length === 0) {
+    issues.push(issue("entry", "Collection Bundle must have entry[]"));
+    return issues;
+  }
+
+  const urls = new Set<string>();
+  let patientCount = 0;
+
+  input.entry.forEach((item, index) => {
+    const path = `entry[${index}]`;
+    if (!isRecord(item)) {
+      issues.push(issue(path, "Entry must be an object"));
+      return;
+    }
+    if (typeof item.fullUrl !== "string" || !isAbsoluteFullUrl(item.fullUrl)) {
+      issues.push(
+        issue(
+          `${path}.fullUrl`,
+          "Except for transaction/batch, each entry SHALL have an absolute fullUrl (http(s), urn:uuid, or urn:oid)"
+        )
+      );
+    } else if (urls.has(item.fullUrl)) {
+      issues.push(issue(`${path}.fullUrl`, "bdl-7: fullUrl must be unique in the Bundle"));
+    } else {
+      urls.add(item.fullUrl);
+    }
+    if (typeof item.fullUrl === "string" && /\/_history\//.test(item.fullUrl)) {
+      issues.push(issue(`${path}.fullUrl`, "bdl-8: fullUrl must not be version-specific"));
+    }
+
+    const resource = item.resource;
+    if (!isRecord(resource)) {
+      issues.push(issue(`${path}.resource`, "Entry is missing a resource"));
+      return;
+    }
+    if (typeof resource.resourceType !== "string") {
+      issues.push(issue(`${path}.resource.resourceType`, "Missing resourceType"));
+    }
+    if (typeof resource.id !== "string" || !FHIR_ID_RE.test(resource.id)) {
+      issues.push(issue(`${path}.resource.id`, "Resource.id must match [A-Za-z0-9-.]{1,64}"));
+    }
+
+    const kind = resource.resourceType;
+    const rpath = `${path}.resource`;
+
+    if (kind === "Patient") {
+      patientCount += 1;
+      if (typeof resource.gender !== "string" || !GENDERS.has(resource.gender)) {
+        issues.push(issue(`${rpath}.gender`, "Patient.gender must be male | female | other | unknown"));
+      }
+      const identifiers = Array.isArray(resource.identifier) ? resource.identifier : [];
+      if (!identifiers.some((row) => isRecord(row) && typeof row.value === "string" && row.value)) {
+        issues.push(issue(`${rpath}.identifier`, "Patient should carry at least one identifier"));
+      }
+    }
+
+    if (kind === "Condition") {
+      if (!isRecord(resource.subject) || typeof resource.subject.reference !== "string") {
+        issues.push(issue(`${rpath}.subject`, "Condition.subject is required"));
+      }
+      const clinical = firstCode(resource, "clinicalStatus");
+      const verification = firstCode(resource, "verificationStatus");
+      if (verification !== "entered-in-error" && !clinical) {
+        issues.push(issue(`${rpath}.clinicalStatus`, "con-3: clinicalStatus SHALL be present unless entered-in-error"));
+      }
+      const categoryCode = Array.isArray(resource.category)
+        ? resource.category
+            .map((item) => firstCoding(item)?.code)
+            .find((code) => typeof code === "string" && code)
+        : firstCoding(resource.category)?.code;
+      if (categoryCode !== "problem-list-item") {
+        issues.push(issue(`${rpath}.category`, "Condition.category should include problem-list-item"));
+      }
+      if (!textOf(resource.code)) {
+        issues.push(issue(`${rpath}.code`, "Condition.code should have text or coding"));
+      }
+    }
+
+    if (kind === "Observation") {
+      if (typeof resource.status !== "string" || !OBS_STATUS.has(resource.status)) {
+        issues.push(issue(`${rpath}.status`, "Observation.status is required"));
+      }
+      if (!textOf(resource.code) && !firstCoding(resource.code)?.code) {
+        issues.push(issue(`${rpath}.code`, "Observation.code is required"));
+      }
+      if (!isRecord(resource.subject) || typeof resource.subject.reference !== "string") {
+        issues.push(issue(`${rpath}.subject`, "Observation.subject should reference the Patient"));
+      }
+      if (typeof resource.effectiveDateTime !== "string" || !INSTANT_RE.test(resource.effectiveDateTime)) {
+        issues.push(issue(`${rpath}.effectiveDateTime`, "Observation.effectiveDateTime should be an instant"));
+      }
+
+      const hasComponents = Array.isArray(resource.component) && resource.component.length > 0;
+      const qty = resource.valueQuantity;
+      if (!hasComponents && (!isRecord(qty) || typeof qty.value !== "number")) {
+        issues.push(issue(`${rpath}.valueQuantity`, "Numeric observations need valueQuantity.value"));
+      }
+
+      for (const { path: qpath, qty: quantity } of quantitiesOn(resource)) {
+        if (typeof quantity.system === "string" && typeof quantity.code !== "string") {
+          issues.push(issue(`${rpath}.${qpath}`, "qty-3 inverse: if system is present, code SHALL be present"));
+        }
+        if (typeof quantity.code === "string" && typeof quantity.system !== "string") {
+          issues.push(issue(`${rpath}.${qpath}`, "qty-3: if a unit code is present, system SHALL be present"));
+        }
+        if (typeof quantity.system === "string" && quantity.system !== UCUM) {
+          issues.push(issue(`${rpath}.${qpath}`, "valueQuantity should use UCUM system and code"));
+        }
+      }
+
+      if (categoryOf(resource) === "vital-signs") {
+        const loinc = firstCoding(resource.code);
+        if (loinc?.system !== LOINC || !loinc.code) {
+          issues.push(issue(`${rpath}.code`, "Vital-sign Observations should use a LOINC code"));
+        }
+      }
+    }
+
+    if (kind === "MedicationRequest") {
+      if (typeof resource.status !== "string" || !MED_STATUS.has(resource.status)) {
+        issues.push(issue(`${rpath}.status`, "MedicationRequest.status is required"));
+      }
+      if (typeof resource.intent !== "string" || !MED_INTENT.has(resource.intent)) {
+        issues.push(issue(`${rpath}.intent`, "MedicationRequest.intent is required"));
+      }
+      if (!textOf(resource.medicationCodeableConcept) && !isRecord(resource.medicationReference)) {
+        issues.push(issue(`${rpath}.medication[x]`, "MedicationRequest.medication[x] is required"));
+      }
+      if (!isRecord(resource.subject) || typeof resource.subject.reference !== "string") {
+        issues.push(issue(`${rpath}.subject`, "MedicationRequest.subject is required"));
+      }
+    }
+
+    if (kind === "AllergyIntolerance") {
+      if (!isRecord(resource.patient) || typeof resource.patient.reference !== "string") {
+        issues.push(issue(`${rpath}.patient`, "AllergyIntolerance.patient is required"));
+      }
+      const verification = firstCode(resource, "verificationStatus");
+      const clinical = firstCode(resource, "clinicalStatus");
+      if (verification !== "entered-in-error" && !clinical) {
+        issues.push(
+          issue(`${rpath}.clinicalStatus`, "ait-1: clinicalStatus SHALL be present unless entered-in-error")
+        );
+      }
+      const coded = firstCoding(resource.code);
+      const text = textOf(resource.code);
+      if (NKDA_PATTERN.test(text) && coded?.code !== "409137002") {
+        issues.push(issue(`${rpath}.code`, "NKDA should use SNOMED 409137002"));
+      }
+    }
+  });
+
+  if (patientCount !== 1) {
+    issues.push(issue("entry", "Collection should contain exactly one Patient"));
+  }
+
+  return issues;
 }
