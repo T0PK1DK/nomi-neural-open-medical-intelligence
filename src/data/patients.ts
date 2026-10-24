@@ -42,7 +42,8 @@ export const PATIENTS: Patient[] = [
       { name: "Furosemide", dose: "40 mg", route: "IV", schedule: "BID" },
       { name: "Atorvastatin", dose: "40 mg", route: "PO", schedule: "nightly" }
     ],
-    vitals: { bpSys: 128, bpDia: 76, hr: 82, rr: 20, spo2: 94, tempC: 36.7, weightKg: 92 },
+    vitals: { bpSys: 128, bpDia: 76, hr: 82, rr: 20, spo2: 94, tempC: 36.7, weightKg: 92, takenMinutesAgo: 35 },
+    labsDrawnMinutesAgo: 140,
     labs: [
       { id: "bnp", name: "BNP", value: 832, unit: "pg/mL", refLow: 0, refHigh: 100, flag: "high" },
       { id: "trop", name: "Troponin I", value: 0.04, unit: "ng/mL", refLow: 0, refHigh: 0.03, flag: "high" },
@@ -89,13 +90,6 @@ export const PATIENTS: Patient[] = [
           "We are treating fluid overload and watching kidney function and potassium. This draft is not medical advice and must be reviewed before release."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-88472", label: "Adult 68y · male" },
-      { resourceType: "Condition", id: "cond-hf", label: "I50.9 Heart failure, unspecified (working)" },
-      { resourceType: "Observation", id: "obs-bnp", label: "BNP 832 pg/mL" },
-      { resourceType: "MedicationRequest", id: "med-ace", label: "Lisinopril 10 mg daily" },
-      { resourceType: "AllergyIntolerance", id: "alg-nkda", label: "NKDA" }
-    ],
     similar: {
       label: "Adults 65–75 with BNP 600–1000 and eGFR 30–50",
       n: 214,
@@ -124,7 +118,8 @@ export const PATIENTS: Patient[] = [
       { name: "Norethindrone / ethinyl estradiol", dose: "1 tablet", route: "PO", schedule: "daily" },
       { name: "Sertraline", dose: "50 mg", route: "PO", schedule: "daily" }
     ],
-    vitals: { bpSys: 118, bpDia: 74, hr: 112, rr: 24, spo2: 91, tempC: 37.1, weightKg: 98 },
+    vitals: { bpSys: 118, bpDia: 74, hr: 112, rr: 24, spo2: 91, tempC: 37.1, weightKg: 98, takenMinutesAgo: 12 },
+    labsDrawnMinutesAgo: 55,
     labs: [
       { id: "ddimer", name: "D-dimer", value: 1.8, unit: "mg/L", refLow: 0, refHigh: 0.5, flag: "high" },
       { id: "trop", name: "Troponin I", value: 0.01, unit: "ng/mL", refLow: 0, refHigh: 0.03, flag: "normal" },
@@ -156,12 +151,6 @@ export const PATIENTS: Patient[] = [
         body: "Pretest is not low. Contrast allergy is listed. Draft only — no order placed by NOMI."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-22019", label: "Adult 54y · female" },
-      { resourceType: "Condition", id: "cond-pe", label: "Working: PE not excluded" },
-      { resourceType: "Observation", id: "obs-dd", label: "D-dimer 1.8 mg/L" },
-      { resourceType: "AllergyIntolerance", id: "alg-cx", label: "Iodinated contrast — urticaria" }
-    ],
     similar: {
       label: "Adults with tachycardia + hypoxia + travel + raised D-dimer",
       n: 88,
@@ -186,7 +175,8 @@ export const PATIENTS: Patient[] = [
       { name: "Insulin glargine", dose: "18 units", route: "SQ", schedule: "nightly" },
       { name: "Insulin lispro", dose: "carb ratio 1:10", route: "SQ", schedule: "meals" }
     ],
-    vitals: { bpSys: 104, bpDia: 62, hr: 118, rr: 28, spo2: 98, tempC: 37.4, weightKg: 61 },
+    vitals: { bpSys: 104, bpDia: 62, hr: 118, rr: 28, spo2: 98, tempC: 37.4, weightKg: 61, takenMinutesAgo: 20 },
+    labsDrawnMinutesAgo: 90,
     labs: [
       { id: "glu", name: "Glucose", value: 428, unit: "mg/dL", refLow: 70, refHigh: 99, flag: "high" },
       { id: "ag", name: "Anion gap", value: 22, unit: "mmol/L", refLow: 6, refHigh: 12, flag: "high" },
@@ -216,12 +206,6 @@ export const PATIENTS: Patient[] = [
         body: "Fluids, potassium plan, insulin infusion — clinician-owned. NOMI will not start insulin."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-44108", label: "Adult 31y · female" },
-      { resourceType: "Condition", id: "cond-dka", label: "E10.10 Type 1 diabetes with DKA (working)" },
-      { resourceType: "Observation", id: "obs-glu", label: "Glucose 428 mg/dL" },
-      { resourceType: "MedicationRequest", id: "med-ins", label: "Insulin regimen (home)" }
-    ],
     similar: {
       label: "Adults 18–40 with gap acidosis + glucose >350",
       n: 61,
@@ -247,7 +231,8 @@ export const PATIENTS: Patient[] = [
       { name: "Insulin glargine", dose: "8 units", route: "SQ", schedule: "nightly" },
       { name: "Acetaminophen", dose: "650 mg", route: "PO", schedule: "q6h PRN" }
     ],
-    vitals: { bpSys: 92, bpDia: 54, hr: 108, rr: 22, spo2: 95, tempC: 38.7, weightKg: 54 },
+    vitals: { bpSys: 92, bpDia: 54, hr: 108, rr: 22, spo2: 95, tempC: 38.7, weightKg: 54, takenMinutesAgo: 45 },
+    labsDrawnMinutesAgo: 180,
     labs: [
       { id: "wbc", name: "WBC", value: 16.4, unit: "K/µL", refLow: 4, refHigh: 11, flag: "high" },
       { id: "lact", name: "Lactate", value: 2.8, unit: "mmol/L", refLow: 0.5, refHigh: 1.9, flag: "high" },
@@ -278,12 +263,6 @@ export const PATIENTS: Patient[] = [
         body: "Hour-1 items are a checklist, not orders. Escalate if SBP stays <90 after the first fluid challenge — clinician call."
       }
     ],
-    fhir: [
-      { resourceType: "Patient", id: "P-77301", label: "Adult 77y · female" },
-      { resourceType: "Condition", id: "cond-sep", label: "Sepsis, unspecified organism (working)" },
-      { resourceType: "Observation", id: "obs-lac", label: "Lactate 2.8 mmol/L" },
-      { resourceType: "AllergyIntolerance", id: "alg-pcn", label: "Penicillin — rash" }
-    ],
     similar: {
       label: "Adults ≥70 with fever + lactate ≥2 + SBP <100",
       n: 140,
@@ -302,10 +281,11 @@ export const PATIENTS: Patient[] = [
     admitHoursAgo: 5,
     mrn: "10955-33",
     chiefConcern: "Brief atypical chest tightness after lifting",
-    problems: ["None listed"],
+    problems: [],
     allergies: ["No known drug allergies"],
     meds: [{ name: "Ibuprofen", dose: "400 mg", route: "PO", schedule: "PRN" }],
-    vitals: { bpSys: 132, bpDia: 80, hr: 72, rr: 14, spo2: 99, tempC: 36.6, weightKg: 81 },
+    vitals: { bpSys: 132, bpDia: 80, hr: 72, rr: 14, spo2: 99, tempC: 36.6, weightKg: 81, takenMinutesAgo: 25 },
+    labsDrawnMinutesAgo: 70,
     labs: [
       { id: "trop", name: "Troponin I", value: 0.01, unit: "ng/mL", refLow: 0, refHigh: 0.03, flag: "normal" },
       { id: "bnp", name: "BNP", value: 18, unit: "pg/mL", refLow: 0, refHigh: 100, flag: "normal" },
@@ -332,10 +312,6 @@ export const PATIENTS: Patient[] = [
         needsReview: true,
         draft: "Return precautions for chest pain. This is a draft and is not medical advice."
       }
-    ],
-    fhir: [
-      { resourceType: "Patient", id: "P-10955", label: "Adult 45y · male" },
-      { resourceType: "Observation", id: "obs-trop", label: "Troponin I 0.01 ng/mL" }
     ],
     similar: {
       label: "Adults 40–50 with non-ischemic ECG + undetectable troponin",

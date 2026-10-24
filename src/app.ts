@@ -5,6 +5,7 @@ import { answerQuestion } from "./engine/copilot";
 import {
   buildFhirBundle,
   bundleResourceCounts,
+  fhirChips,
   fhirFilename,
   serializeFhirBundle
 } from "./engine/fhir";
@@ -15,6 +16,7 @@ import { decompRisk, detectAnomalies, news2Like } from "./engine/risk";
 import { filterPatients, searchAll } from "./engine/search";
 import type {
   AlertAction,
+  ReasonerResult,
   AuditEvent,
   CopilotMode,
   GraphEdge,
@@ -30,6 +32,10 @@ interface ChatTurn {
   text: string;
   sourceIds: string[];
   abstained?: boolean;
+  /** AI turn still being computed. */
+  pending?: boolean;
+  /** AI turn that failed; `retry` holds the question to ask again. */
+  retry?: string;
 }
 
 interface State {
@@ -51,7 +57,12 @@ interface State {
   navOpen: boolean;
   auditQuery: string;
   lastExport: string | null;
+  exportError: string | null;
+  copilotBusy: boolean;
 }
+
+/** Bottom bar on phones: four primary views plus More, which opens the full menu. */
+const MOBILE_PRIMARY: ViewId[] = ["dashboard", "copilot", "patients", "monitoring"];
 
 const VIEWS: { id: ViewId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -71,6 +82,33 @@ const TITLES: Record<ViewId, string> = {
   monitoring: "Remote monitoring",
   messages: "Secure messages",
   audit: "Audit trail"
+};
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error && err.message ? err.message : "Unknown error";
+}
+
+/** Run `fn` after the browser has painted the current frame, so loading states are visible. */
+function afterPaint(fn: () => void): void {
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => window.setTimeout(fn, 0));
+  } else {
+    window.setTimeout(fn, 0);
+  }
+}
+
+function ago(minutes: number): string {
+  if (minutes < 60) return `${minutes} min ago`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h} h ${m} min ago` : `${h} h ago`;
+}
+
+const CONFIDENCE_LABEL: Record<ReasonerResult["confidence"], string> = {
+  high: "High confidence",
+  moderate: "Moderate confidence",
+  low: "Low confidence",
+  abstain: "Abstaining"
 };
 
 function escapeHtml(value: string): string {
@@ -140,7 +178,7 @@ function sparkline(values: number[], invert = false): string {
   const span = max - min || 1;
   const yOf = (v: number) => (invert ? ((v - min) / span) * 40 + 4 : 44 - ((v - min) / span) * 40);
   if (values.length === 1) {
-    return `<svg class="spark" viewBox="0 0 120 48" aria-hidden="true"><circle cx="60" cy="${yOf(values[0]).toFixed(1)}" r="3.5" fill="#22d3ee"></circle></svg>`;
+    return `<svg class="spark" viewBox="0 0 120 48" preserveAspectRatio="none" aria-hidden="true"><circle cx="60" cy="${yOf(values[0]).toFixed(1)}" r="3.5" fill="#22d3ee"></circle></svg>`;
   }
   const pts = values
     .map((v, i) => {
@@ -148,7 +186,7 @@ function sparkline(values: number[], invert = false): string {
       return `${x.toFixed(1)},${yOf(v).toFixed(1)}`;
     })
     .join(" ");
-  return `<svg class="spark" viewBox="0 0 120 48" aria-hidden="true"><polyline fill="none" stroke="#22d3ee" stroke-width="2" points="${pts}" /></svg>`;
+  return `<svg class="spark" viewBox="0 0 120 48" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="#22d3ee" stroke-width="2" vector-effect="non-scaling-stroke" points="${pts}" /></svg>`;
 }
 
 function downloadFhir(patient: Patient): void {
@@ -204,12 +242,48 @@ export function mount(root: HTMLElement): void {
     panelOpen: false,
     navOpen: false,
     auditQuery: "",
-    lastExport: null
+    lastExport: null,
+    exportError: null,
+    copilotBusy: false
   };
 
   let focusAfterRender: "main" | "roster" | "audit" | "palette" | null = null;
 
   const patient = () => patientById(state.patientId) ?? PATIENTS[0];
+
+  // Charts are static, so each (chart, depth) analysis is computed once. Thorough mode
+  // enumerates up to 2^n finding-flip worlds, so it runs after a paint behind a loading state.
+  const analyses = new Map<string, ReasonerResult>();
+  const analysisPending = new Set<string>();
+  const analysisErrors = new Map<string, string>();
+
+  const analysisFor = (p: Patient, thorough: boolean): ReasonerResult | null => {
+    const key = `${p.id}:${thorough ? "thorough" : "quick"}`;
+    const cached = analyses.get(key);
+    if (cached) return cached;
+    if (analysisErrors.has(key)) throw new Error(analysisErrors.get(key));
+    if (!thorough) {
+      const result = rankDiagnoses(DIAGNOSES, p.findings, { thorough: false });
+      analyses.set(key, result);
+      return result;
+    }
+    if (!analysisPending.has(key)) {
+      analysisPending.add(key);
+      afterPaint(() => {
+        try {
+          analyses.set(key, rankDiagnoses(DIAGNOSES, p.findings, { thorough: true }));
+        } catch (err) {
+          analysisErrors.set(key, errorMessage(err));
+        } finally {
+          analysisPending.delete(key);
+          render();
+        }
+      });
+    }
+    return null;
+  };
+
+  const knownFindings = (p: Patient) => p.findings.filter((f) => f.polarity !== "unknown").length;
 
   const log = (kind: string, detail: string) => {
     state.audit = appendAudit(state.audit, makeAuditEvent(kind, detail, state.role, state.patientId));
@@ -221,6 +295,7 @@ export function mount(root: HTMLElement): void {
     state.chat = [];
     state.graphSelected = null;
     state.lastExport = null;
+    state.exportError = null;
     log("context", `Focused ${id}`);
     writeHash(state.view, state.patientId);
     render();
@@ -242,16 +317,28 @@ export function mount(root: HTMLElement): void {
 
   const ask = (question: string, goToCopilot = false) => {
     const q = question.trim();
-    if (!q) return;
-    const reply = answerQuestion(q, patient(), state.role, state.mode);
+    if (!q || state.copilotBusy) return;
+    const p = patient();
+    const role = state.role;
+    const mode = state.mode;
     state.chat.push({ who: "user", text: q, sourceIds: [] });
-    state.chat.push({
-      who: "ai",
-      text: reply.text,
-      sourceIds: reply.sourceIds,
-      abstained: reply.abstained
+    const turn: ChatTurn = { who: "ai", text: "", sourceIds: [], pending: true };
+    state.chat.push(turn);
+    state.copilotBusy = true;
+    afterPaint(() => {
+      try {
+        const reply = answerQuestion(q, p, role, mode);
+        Object.assign(turn, { text: reply.text, sourceIds: reply.sourceIds, abstained: reply.abstained });
+        log("copilot", `${reply.intent}: ${q.slice(0, 80)}`);
+      } catch (err) {
+        Object.assign(turn, { text: `NOMI couldn't answer this (${errorMessage(err)}). Nothing was saved to the chart.`, retry: q });
+        log("copilot-error", `${errorMessage(err)}: ${q.slice(0, 80)}`);
+      } finally {
+        turn.pending = false;
+        state.copilotBusy = false;
+        render();
+      }
     });
-    log("copilot", `${reply.intent}: ${q.slice(0, 80)}`);
     if (goToCopilot) {
       state.view = "copilot";
       state.panelOpen = false;
@@ -303,37 +390,68 @@ export function mount(root: HTMLElement): void {
 
   function renderPanel(): string {
     const p = patient();
-    const result = rankDiagnoses(DIAGNOSES, p.findings, { thorough: state.mode === "thorough" });
-    const leadSources = (result.mostLikely?.sourceIds ?? []).map(sourceById).filter(Boolean);
+    let body: string;
+    try {
+      const result = analysisFor(p, state.mode === "thorough");
+      if (!result) {
+        body = loadingBlock("Ranking the differential…", 3);
+      } else {
+        const leadSources = (result.mostLikely?.sourceIds ?? []).map(sourceById).filter(Boolean);
+        body = `
+          <p class="panel-lead">${escapeHtml(
+            result.mostLikely
+              ? `Draft for ${p.id}: ${result.mostLikely.name}.`
+              : "No stable draft yet. Gather more findings."
+          )}</p>
+          <h3 class="section-label">Sources for the lead draft</h3>
+          ${
+            leadSources.length
+              ? leadSources
+                  .map(
+                    (src) =>
+                      `<div class="source"><strong>${escapeHtml(src!.title)}</strong><span>${escapeHtml(src!.summary)}</span><a href="${src!.url}" target="_blank" rel="noopener noreferrer">Open source</a></div>`
+                  )
+                  .join("")
+              : `<p class="meta">No cited source for this draft.</p>`
+          }`;
+      }
+    } catch (err) {
+      body = errorBlock("The evidence rail couldn't load.", err, "analysis");
+    }
     return `
       <aside class="right-panel${state.panelOpen ? " open" : ""}" aria-label="Evidence">
         <div class="drawer-head">
-          <strong>Evidence rail</strong>
+          <h2 class="panel-title">Evidence rail</h2>
           <span class="badge badge-cyan">${state.mode === "thorough" ? "Thorough" : "Quick"}</span>
           <button class="btn-ghost drawer-close" data-cmd="panel" aria-label="Close evidence">Close</button>
         </div>
-        <p class="meta">${escapeHtml(explainForRole(result, state.role))}</p>
-        ${leadSources
-          .map(
-            (s) =>
-              `<div class="source"><strong>${escapeHtml(s!.title)}</strong>${escapeHtml(s!.summary)} <a href="${s!.url}" target="_blank" rel="noopener noreferrer">Open source</a></div>`
-          )
-          .join("")}
-        <div class="msg ai">${escapeHtml(
-          result.mostLikely
-            ? `Draft for ${p.id}: ${result.mostLikely.name}. Ask a follow-up or open Copilot.`
-            : "No stable draft. Gather findings."
-        )}</div>
-        <form class="btn-row" data-form="rail">
-          <input name="q" type="text" placeholder="Ask about this chart…" aria-label="Ask the evidence rail" />
-          <button class="btn" type="submit">Send</button>
+        ${body}
+        <form class="btn-row panel-ask" data-form="rail">
+          <input name="q" type="text" placeholder="Ask about this chart…" aria-label="Ask the evidence rail" ${state.copilotBusy ? "disabled" : ""} />
+          <button class="btn" type="submit" ${state.copilotBusy ? "disabled" : ""}>Ask</button>
         </form>
       </aside>`;
   }
 
+  /** Placeholder shown while a computation runs. Announced to assistive tech via aria-busy. */
+  function loadingBlock(label: string, lines = 4): string {
+    return `<div class="loading" role="status" aria-live="polite" aria-busy="true">
+      <span class="spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>
+      ${Array.from({ length: lines }, (_, i) => `<div class="skeleton" style="width:${92 - i * 14}%"></div>`).join("")}
+    </div>`;
+  }
+
+  function errorBlock(title: string, err: unknown, retry: "analysis" | "view"): string {
+    return `<div class="error-state" role="alert">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(errorMessage(err))}. The chart data is unchanged.</p>
+      <div class="btn-row"><button class="btn" data-retry="${retry}">Try again</button></div>
+    </div>`;
+  }
+
   function renderDashboard(): string {
     const p = patient();
-    const result = rankDiagnoses(DIAGNOSES, p.findings, { thorough: true });
+    const result = analysisFor(p, true);
     const egfr = lab(p, "egfr");
     const potassium = lab(p, "k");
     const interactions = analyzeInteractions(p.meds, { egfr, potassium });
@@ -344,8 +462,151 @@ export function mount(root: HTMLElement): void {
       hr: p.vitals.hr,
       tempC: p.vitals.tempC
     });
+    const fhirCounts = bundleResourceCounts(buildFhirBundle(p));
+    const fhirTotal = Object.values(fhirCounts).reduce((a, b) => a + b, 0);
+
+    return `
+      <div class="grid-2">
+        <div>
+          <section class="card card-lead" aria-labelledby="assess-title">
+            ${result ? renderAssessment(p, result, news) : `
+              <h2 class="card-title" id="assess-title">Working assessment</h2>
+              ${loadingBlock(`Ranking the differential across ${(1 << Math.min(14, knownFindings(p))).toLocaleString()} finding-flip worlds…`)}`}
+          </section>
+          <section class="card" aria-labelledby="ddx-title">
+            <h2 class="card-title" id="ddx-title">Differential <span class="badge badge-cyan">Cited</span></h2>
+            ${result ? renderDifferential(result) : loadingBlock("Waiting for the ranking…", 3)}
+          </section>
+        </div>
+        <div>
+          <section class="card" aria-labelledby="labs-title">
+            <h2 class="card-title" id="labs-title">Key labs <span class="card-sub">Drawn ${ago(p.labsDrawnMinutesAgo)}</span></h2>
+            ${p.labs
+              .map(
+                (l) =>
+                  `<div class="row lab-row">
+                    <div><span>${escapeHtml(l.name)}</span><div class="meta">Ref ${l.refLow}–${l.refHigh} ${escapeHtml(l.unit)}</div></div>
+                    <div class="lab-value"><strong>${l.value} <span class="unit">${escapeHtml(l.unit)}</span></strong>${
+                      l.flag === "normal" ? "" : `<span class="badge ${l.flag === "high" ? "badge-low" : "badge-warn"}">${l.flag === "high" ? "↑ High" : "↓ Low"}</span>`
+                    }</div>
+                  </div>`
+              )
+              .join("")}
+          </section>
+          <section class="card" aria-labelledby="meds-title">
+            <h2 class="card-title" id="meds-title">Medication safety</h2>
+            ${
+              interactions.length
+                ? interactions
+                    .map(
+                      (a) =>
+                        `<div class="alert ${a.severity === "moderate" ? "moderate" : ""}"><strong>${escapeHtml(a.drugs.join(" + "))} · ${a.severity}</strong><p>${escapeHtml(a.mechanism)}</p><p><em>${escapeHtml(a.management)}</em></p>${
+                          a.modifiers.length ? `<div class="meta">${escapeHtml(a.modifiers.join(" · "))}</div>` : ""
+                        }</div>`
+                    )
+                    .join("")
+                : `<p class="meta">No coded pair fired. The formulary is incomplete, so this is not a safety clearance.</p>`
+            }
+            <div class="meta" style="margin-top:10px">Regimen: ${p.meds.map((m) => escapeHtml(`${m.name} ${m.dose}`)).join(" · ")}</div>
+          </section>
+          <section class="card" aria-labelledby="cohort-title">
+            <h2 class="card-title" id="cohort-title">Similar cohort <span class="card-sub">Synthetic</span></h2>
+            <p>${escapeHtml(p.similar.label)}</p>
+            <p class="meta">n=${p.similar.n} · ${escapeHtml(p.similar.outcome)} · ${escapeHtml(p.similar.interval)}</p>
+            <p class="meta">${escapeHtml(p.similar.freshness)}</p>
+          </section>
+          <section class="card" aria-labelledby="fhir-title">
+            <h2 class="card-title" id="fhir-title">FHIR export <span class="badge badge-cyan">Read-only</span></h2>
+            <p class="meta">FHIR R4 collection of ${fhirTotal} resources for this chart. Identifiers only: no personal names, and nothing is written back to an EHR.</p>
+            <div class="chips" style="margin:10px 0">
+              ${Object.entries(fhirCounts)
+                .map(([kind, n]) => `<span class="chip">${escapeHtml(kind)} × ${n}</span>`)
+                .join("")}
+            </div>
+            <ul class="chips fhir-provenance" aria-label="Exported resources" style="list-style:none;padding:0;margin:0 0 10px">
+              ${fhirChips(p)
+                .map(
+                  (c) =>
+                    `<li class="chip" data-fhir-ref="${escapeHtml(`${c.resourceType}/${c.id}`)}" title="${escapeHtml(`${c.resourceType}/${c.id}`)}">${escapeHtml(c.label)}</li>`
+                )
+                .join("")}
+            </ul>
+            <div class="btn-row">
+              <button class="btn" type="button" data-fhir-export>Download FHIR bundle</button>
+              ${
+                state.lastExport && !state.exportError
+                  ? `<span class="badge badge-high" role="status">Saved ${escapeHtml(state.lastExport)}</span>`
+                  : ""
+              }
+            </div>
+            ${
+              state.exportError
+                ? `<div class="error-state" role="alert"><strong>Export failed.</strong><p>${escapeHtml(state.exportError)}. Nothing was downloaded. Try again.</p></div>`
+                : ""
+            }
+          </section>
+          ${
+            state.role === "student"
+              ? `<section class="card"><h2 class="card-title">Teaching pearl</h2><p>${escapeHtml(p.teachingPearl)}</p></section>`
+              : ""
+          }
+          ${
+            state.role === "researcher"
+              ? `<section class="card"><h2 class="card-title">Trial and literature notes</h2><ul class="list">${p.trialHints.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></section>`
+              : ""
+          }
+        </div>
+      </div>`;
+  }
+
+  function renderAssessment(p: Patient, result: ReasonerResult, news: { name: string; value: number }): string {
     const insightKey = `${p.id}-insight`;
     const status = state.insight[insightKey] ?? "pending";
+    const lead = result.mostLikely;
+    const confidenceClass =
+      result.confidence === "high" ? "high" : result.confidence === "low" || result.confidence === "abstain" ? "low" : "med";
+    const drivers = lead?.drivers.slice(0, 3).map((d) => d.label) ?? [];
+    const cannotMiss = result.cannotMiss.filter((d) => d.id !== lead?.id);
+    return `
+      <div class="eyebrow">Working assessment · draft</div>
+      <div class="lead-head">
+        <h2 class="lead-dx" id="assess-title">${escapeHtml(lead?.name ?? "No stable draft")}</h2>
+        <span class="badge badge-${confidenceClass}">${CONFIDENCE_LABEL[result.confidence]}</span>
+      </div>
+      <p class="lead-why">${
+        drivers.length ? `Driven by ${escapeHtml(drivers.join(", "))}.` : escapeHtml(result.confidenceWhy)
+      }</p>
+      ${
+        cannotMiss.length
+          ? `<div class="alert moderate cannot-miss"><strong>Don't close the chart without considering</strong> ${escapeHtml(cannotMiss.map((d) => d.name).join(", "))}.</div>`
+          : ""
+      }
+      <details class="explain"${state.role === "student" ? " open" : ""}>
+        <summary>Why NOMI ranked it this way</summary>
+        <p>${escapeHtml(explainForRole(result, state.role))}</p>
+      </details>
+      <div class="chips">${
+        p.problems.length
+          ? p.problems.map((x) => `<span class="chip">${escapeHtml(x)}</span>`).join("")
+          : `<span class="meta">No active problems recorded</span>`
+      }</div>
+      <div class="vitals" aria-label="Vitals, charted ${ago(p.vitals.takenMinutesAgo)}">
+        <div class="vital"><div class="val">${p.vitals.bpSys}/${p.vitals.bpDia}</div><div class="lbl">Blood pressure</div></div>
+        <div class="vital"><div class="val">${p.vitals.hr}</div><div class="lbl">Heart rate</div></div>
+        <div class="vital"><div class="val">${p.vitals.spo2}%</div><div class="lbl">SpO₂</div></div>
+        <div class="vital"><div class="val">${news.value}</div><div class="lbl">${escapeHtml(news.name.split(" ")[0])}</div></div>
+      </div>
+      <p class="meta">Vitals charted ${ago(p.vitals.takenMinutesAgo)}.</p>
+      <div class="btn-row">
+        <button class="btn" data-act="accepted" data-id="${insightKey}">Accept draft</button>
+        <button class="btn-ghost" data-act="deferred" data-id="${insightKey}">Defer</button>
+        <button class="btn-danger" data-act="overridden" data-id="${insightKey}">Override</button>
+        <span class="badge badge-cyan" role="status">Status: ${actionLabel(status)}</span>
+      </div>
+      <p class="meta">${result.worldsEvaluated.toLocaleString()} worlds evaluated. Draft only, not an order.</p>`;
+  }
+
+  function renderDifferential(result: ReasonerResult): string {
     const lead = result.ranked[0];
     const most = result.ranked.filter((d, i) => i === 0 || d.band === "strong");
     const miss = result.cannotMiss.filter((d) => d.id !== lead?.id);
@@ -353,101 +614,11 @@ export function mount(root: HTMLElement): void {
     const expanded = result.ranked.filter(
       (d) => d.band === "possible" && d.id !== lead?.id && !missIds.has(d.id)
     );
-    const fhirBundle = buildFhirBundle(p);
-    const fhirCounts = bundleResourceCounts(fhirBundle);
-
     return `
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <h3>Working assessment <span class="badge badge-${result.confidence === "high" ? "high" : result.confidence === "low" || result.confidence === "abstain" ? "low" : "med"}">${escapeHtml(result.confidence)}</span></h3>
-            <div class="meta">${p.id} · ${p.ageYears}y · ${p.sex} · MRN ${p.mrn} · ${p.unit} · admitted ${p.admitHoursAgo}h</div>
-            <p style="margin:10px 0 8px;line-height:1.55">${escapeHtml(explainForRole(result, state.role))}</p>
-            <div class="chips">${p.problems.map((x) => `<span class="chip">${escapeHtml(x)}</span>`).join("")}</div>
-            <div class="vitals">
-              <div class="vital"><div class="val">${p.vitals.bpSys}/${p.vitals.bpDia}</div><div class="lbl">BP</div></div>
-              <div class="vital"><div class="val">${p.vitals.hr}</div><div class="lbl">HR</div></div>
-              <div class="vital"><div class="val">${p.vitals.spo2}%</div><div class="lbl">SpO₂</div></div>
-              <div class="vital"><div class="val">${news.value}</div><div class="lbl">${news.name.split(" ")[0]}</div></div>
-            </div>
-            <div class="btn-row">
-              <button class="btn" data-act="accepted" data-id="${insightKey}">Accept draft</button>
-              <button class="btn-ghost" data-act="deferred" data-id="${insightKey}">Defer</button>
-              <button class="btn-danger" data-act="overridden" data-id="${insightKey}">Override</button>
-              <span class="badge badge-cyan">Status: ${actionLabel(status)}</span>
-            </div>
-            <p class="meta" style="margin-top:8px">Worlds evaluated: ${result.worldsEvaluated}. Draft only — not an order.</p>
-          </div>
-          <div class="card">
-            <h3>Differential <span class="badge badge-cyan">Cited</span></h3>
-            <strong class="meta">Most likely</strong>
-            ${most.map((d) => dxRow(d)).join("")}
-            ${expanded.length ? `<strong class="meta">Expanded</strong>${expanded.map((d) => dxRow(d)).join("")}` : ""}
-            ${miss.length ? `<strong class="meta">Cannot miss</strong>${miss.map((d) => dxRow(d)).join("")}` : ""}
-          </div>
-        </div>
-        <div>
-          <div class="card">
-            <h3>Key labs</h3>
-            ${p.labs
-              .map(
-                (l) =>
-                  `<div class="row"><span>${escapeHtml(l.name)}</span><strong>${l.value} ${escapeHtml(l.unit)} ${l.flag === "normal" ? "" : l.flag === "high" ? "↑" : "↓"}</strong></div>`
-              )
-              .join("")}
-          </div>
-          <div class="card">
-            <h3>Medication safety</h3>
-            ${
-              interactions.length
-                ? interactions
-                    .map(
-                      (a) =>
-                        `<div class="alert ${a.severity === "moderate" ? "moderate" : ""}"><strong>${escapeHtml(a.drugs.join(" + "))} · ${a.severity}</strong><br/>${escapeHtml(a.mechanism)}<br/><em>${escapeHtml(a.management)}</em>${
-                          a.modifiers.length ? `<div class="meta">${escapeHtml(a.modifiers.join(" · "))}</div>` : ""
-                        }</div>`
-                    )
-                    .join("")
-                : `<p class="meta">No coded pair fired. Incomplete formulary — not a safety clearance.</p>`
-            }
-            <div class="meta" style="margin-top:8px">Regimen: ${p.meds.map((m) => escapeHtml(`${m.name} ${m.dose}`)).join(" · ")}</div>
-          </div>
-          <div class="card">
-            <h3>Similar cohort (synthetic)</h3>
-            <p>${escapeHtml(p.similar.label)}</p>
-            <p class="meta">n=${p.similar.n} · ${escapeHtml(p.similar.outcome)} · ${escapeHtml(p.similar.interval)}</p>
-            <p class="meta">${escapeHtml(p.similar.freshness)}</p>
-          </div>
-          <div class="card">
-            <h3>FHIR export <span class="badge badge-cyan">Read-only</span></h3>
-            <p class="meta">Synthetic R4 collection for this chart. Identifiers only — no personal names, no live EHR write.</p>
-            <div class="chips" style="margin:10px 0">
-              ${Object.entries(fhirCounts)
-                .map(([kind, n]) => `<span class="chip">${escapeHtml(kind)} × ${n}</span>`)
-                .join("")}
-            </div>
-            <div class="chips">${p.fhir.map((c) => `<span class="chip">${c.resourceType} · ${escapeHtml(c.label)}</span>`).join("")}</div>
-            <div class="btn-row">
-              <button class="btn" type="button" data-fhir-export>Download FHIR bundle</button>
-              ${
-                state.lastExport
-                  ? `<span class="badge badge-high">Saved ${escapeHtml(state.lastExport)}</span>`
-                  : ""
-              }
-            </div>
-          </div>
-          ${
-            state.role === "student"
-              ? `<div class="card"><h3>Teaching pearl</h3><p>${escapeHtml(p.teachingPearl)}</p></div>`
-              : ""
-          }
-          ${
-            state.role === "researcher"
-              ? `<div class="card"><h3>Trial / literature notes</h3><ul>${p.trialHints.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></div>`
-              : ""
-          }
-        </div>
-      </div>`;
+      <h3 class="section-label">Most likely</h3>
+      ${most.map((d) => dxRow(d)).join("")}
+      ${expanded.length ? `<h3 class="section-label">Expanded</h3>${expanded.map((d) => dxRow(d)).join("")}` : ""}
+      ${miss.length ? `<h3 class="section-label">Cannot miss</h3>${miss.map((d) => dxRow(d)).join("")}` : ""}`;
   }
 
   function dxRow(d: { name: string; posterior: number; band: string; drivers: { label: string }[] }): string {
@@ -461,32 +632,39 @@ export function mount(root: HTMLElement): void {
   }
 
   function renderCopilot(): string {
+    const p = patient();
     const turns =
       state.chat.length === 0
-        ? `<div class="msg ai">Ask a chart-grounded question. Try “most likely diagnosis”, “drug interactions”, or “sources”. Thorough mode enumerates ${1 << Math.min(14, patient().findings.filter((f) => f.polarity !== "unknown").length)} finding-flip worlds.</div>`
+        ? `<div class="empty-state"><strong>Ask a chart-grounded question.</strong><p>Try “most likely diagnosis”, “drug interactions”, or “sources”. Thorough mode checks ${(1 << Math.min(14, knownFindings(p))).toLocaleString()} finding-flip worlds before answering.</p></div>`
         : state.chat
             .map((t) => {
+              if (t.pending) {
+                return `<div class="msg ai pending" role="status" aria-busy="true"><span class="spinner" aria-hidden="true"></span>Checking the chart and the evidence catalog…</div>`;
+              }
+              if (t.retry) {
+                return `<div class="msg ai error" role="alert">${escapeHtml(t.text)}<div class="btn-row"><button class="btn-ghost" data-retry-ask="${escapeHtml(t.retry)}">Try again</button></div></div>`;
+              }
               const sources = t.sourceIds
                 .map(sourceById)
                 .filter(Boolean)
-                .map((s) => `<div class="source"><strong>${escapeHtml(s!.title)}</strong><a href="${s!.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(s!.url)}</a></div>`)
+                .map((src) => `<div class="source"><strong>${escapeHtml(src!.title)}</strong><a href="${src!.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(src!.url)}</a></div>`)
                 .join("");
               return `<div class="msg ${t.who}${t.abstained ? " ab" : ""}">${escapeHtml(t.text)}</div>${sources}`;
             })
             .join("");
-    return `<div class="card">
-      <h3>NOMI copilot
+    return `<section class="card" aria-labelledby="copilot-title">
+      <h2 class="card-title" id="copilot-title">NOMI copilot
         <span class="mode-toggle" role="group" aria-label="Copilot depth">
           <button class="btn-ghost${state.mode === "quick" ? " active" : ""}" data-mode="quick" aria-pressed="${state.mode === "quick"}">Quick</button>
           <button class="btn-ghost${state.mode === "thorough" ? " active" : ""}" data-mode="thorough" aria-pressed="${state.mode === "thorough"}">Thorough</button>
         </span>
-      </h3>
-      <div id="thread">${turns}</div>
+      </h2>
+      <div id="thread" aria-live="polite">${turns}</div>
       <form class="btn-row" data-form="copilot" style="margin-top:12px">
-        <input name="q" type="text" placeholder="Ask about this patient or the local catalog…" aria-label="Copilot question" />
-        <button class="btn" type="submit">Send</button>
+        <input name="q" type="text" placeholder="Ask about this patient or the local catalog…" aria-label="Copilot question" ${state.copilotBusy ? "disabled" : ""} />
+        <button class="btn" type="submit" ${state.copilotBusy ? 'disabled aria-busy="true"' : ""}>${state.copilotBusy ? "Working…" : "Send"}</button>
       </form>
-    </div>`;
+    </section>`;
   }
 
   function renderGraph(): string {
@@ -522,27 +700,31 @@ export function mount(root: HTMLElement): void {
           neighborsOf(selected, edges).map(labelOf).join(", ") || "none"
         )}</p>`
       : `<p class="meta">Click a node to reveal neighbor labels. Layout used 220 cooling ticks (quality over speed).</p>`;
-    return `<div class="card"><h3>Patient data ↔ diagnoses ↔ sources</h3>
-      <div class="graph-wrap"><svg viewBox="0 0 720 400">${lines}${circles}</svg></div>
+    return `<section class="card"><h2 class="card-title">Patient data ↔ diagnoses ↔ sources</h2>
+      <div class="graph-wrap"><svg viewBox="0 0 720 400" role="group" aria-label="Knowledge graph">${lines}${circles}</svg></div>
       ${detail}
-    </div>`;
+    </section>`;
   }
 
   function renderPatients(): string {
     const units = ["", ...new Set(PATIENTS.map((p) => p.unit))];
     const rows = filterPatients(PATIENTS, state.rosterQuery, state.rosterUnit);
-    return `<div class="card">
-      <h3>Demo roster <span class="badge badge-cyan">${rows.length}</span></h3>
-      <div class="btn-row">
-        <input id="roster-q" type="search" value="${escapeHtml(state.rosterQuery)}" placeholder="Filter by id, problem, concern…" aria-label="Filter roster" />
-        <select id="roster-unit">${units.map((u) => `<option value="${escapeHtml(u)}" ${u === state.rosterUnit ? "selected" : ""}>${u || "All units"}</option>`).join("")}</select>
-      </div>
+    if (rows.length === 0) {
+      return `<section class="card" aria-labelledby="roster-title">
+      <h2 class="card-title" id="roster-title">Demo roster <span class="badge badge-cyan">0</span></h2>
+      ${rosterFilters(units)}
+      <div class="empty-state" role="status"><strong>No charts match.</strong><p>Nothing matches “${escapeHtml(state.rosterQuery)}”${state.rosterUnit ? ` in ${escapeHtml(state.rosterUnit)}` : ""}.</p><div class="btn-row"><button class="btn-ghost" data-clear="roster">Clear filters</button></div></div>
+    </section>`;
+    }
+    return `<section class="card" aria-labelledby="roster-title">
+      <h2 class="card-title" id="roster-title">Demo roster <span class="badge badge-cyan">${rows.length}</span></h2>
+      ${rosterFilters(units)}
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Chart</th><th>Concern</th><th>Unit</th><th>Lead draft</th><th></th></tr></thead>
         <tbody>
           ${rows
             .map((p) => {
-              const lead = rankDiagnoses(DIAGNOSES, p.findings, { thorough: false }).mostLikely;
+              const lead = analysisFor(p, false)?.mostLikely;
               return `<tr>
                 <td>${p.id}<div class="meta">${p.ageYears}y · ${p.sex}</div></td>
                 <td>${escapeHtml(p.chiefConcern)}</td>
@@ -554,6 +736,23 @@ export function mount(root: HTMLElement): void {
             .join("")}
         </tbody>
       </table></div>
+    </section>`;
+  }
+
+  function rosterFilters(units: string[]): string {
+    return `<div class="btn-row filters">
+        <input id="roster-q" type="search" value="${escapeHtml(state.rosterQuery)}" placeholder="Filter by id, problem, concern…" aria-label="Filter roster" />
+        <select id="roster-unit" aria-label="Filter by unit">${units.map((u) => `<option value="${escapeHtml(u)}" ${u === state.rosterUnit ? "selected" : ""}>${u || "All units"}</option>`).join("")}</select>
+      </div>`;
+  }
+
+  function trace(label: string, values: number[], unit: string, invert = false): string {
+    if (!values.length) return `<div class="trace"><div class="trace-head"><strong>${label}</strong></div><p class="meta">No readings in the last 24 hours.</p></div>`;
+    const latest = values[values.length - 1];
+    return `<div class="trace">
+      <div class="trace-head"><strong>${label}</strong><span>${latest}${unit} now</span></div>
+      ${sparkline(values, invert)}
+      <div class="meta">24 h range ${Math.min(...values)}–${Math.max(...values)}${unit}</div>
     </div>`;
   }
 
@@ -575,24 +774,24 @@ export function mount(root: HTMLElement): void {
     });
     return `
       <div class="grid-3">
-        <div class="card"><h3>${escapeHtml(news.name)}</h3><div class="val" style="font-size:28px">${news.value}<span class="meta"> / ${news.max}</span></div><span class="badge badge-${news.band === "low" ? "high" : news.band === "moderate" ? "med" : "low"}">${news.band}</span></div>
-        <div class="card"><h3>${escapeHtml(hf.name)}</h3><div style="font-size:28px">${hf.value}<span class="meta"> / ${hf.max}</span></div><span class="badge badge-med">${hf.band}</span></div>
-        <div class="card"><h3>Anomalies (MAD)</h3><div style="font-size:28px">${anomalies.length}</div><div class="meta">Robust z ≥ 3.2</div></div>
+        <section class="card stat"><h2 class="card-title">${escapeHtml(news.name)}</h2><div class="stat-value">${news.value}<span class="meta"> / ${news.max}</span></div><span class="badge badge-${news.band === "low" ? "high" : news.band === "moderate" ? "med" : "low"}">${news.band}</span></section>
+        <section class="card stat"><h2 class="card-title">${escapeHtml(hf.name)}</h2><div class="stat-value">${hf.value}<span class="meta"> / ${hf.max}</span></div><span class="badge badge-med">${hf.band}</span></section>
+        <section class="card stat"><h2 class="card-title">Anomalies (MAD)</h2><div class="stat-value">${anomalies.length}</div><div class="meta">Robust z ≥ 3.2</div></section>
       </div>
-      <div class="card">
-        <h3>24-hour traces</h3>
-        <div class="grid-2">
-          <div>HR ${sparkline(p.series.map((s) => s.hr))}</div>
-          <div>SpO₂ ${sparkline(p.series.map((s) => s.spo2), true)}</div>
-          <div>RR ${sparkline(p.series.map((s) => s.rr))}</div>
-          <div>SBP ${sparkline(p.series.map((s) => s.sbp), true)}</div>
+      <section class="card">
+        <h2 class="card-title">24-hour traces</h2>
+        <div class="grid-2 traces">
+          ${trace("Heart rate", p.series.map((s) => s.hr), " /min")}
+          ${trace("SpO₂", p.series.map((s) => s.spo2), "%", true)}
+          ${trace("Respiratory rate", p.series.map((s) => s.rr), " /min")}
+          ${trace("Systolic BP", p.series.map((s) => s.sbp), " mmHg", true)}
         </div>
-      </div>
-      <div class="card">
-        <h3>Closed-loop alerts</h3>
+      </section>
+      <section class="card">
+        <h2 class="card-title">Closed-loop alerts</h2>
         ${
           anomalies.length === 0
-            ? `<p class="meta">No robust outliers on this synthetic trace.</p>`
+            ? `<div class="empty-state" role="status"><strong>No alerts.</strong><p>No robust outliers on this synthetic trace.</p></div>`
             : anomalies
                 .slice(0, 6)
                 .map((a, i) => {
@@ -609,17 +808,20 @@ export function mount(root: HTMLElement): void {
                 })
                 .join("")
         }
-      </div>`;
+      </section>`;
   }
 
   function renderMessages(): string {
     const p = patient();
-    return `<div class="card"><h3>Threads</h3>
+    if (p.threads.length === 0) {
+      return `<section class="card"><h2 class="card-title">Threads</h2><div class="empty-state" role="status"><strong>No messages for ${p.id}.</strong><p>Care-team threads and patient drafts appear here.</p></div></section>`;
+    }
+    return `<section class="card"><h2 class="card-title">Threads</h2>
       ${p.threads
         .map((t) => {
           const released = state.released.includes(t.id);
           return `<div class="thread">
-            <strong>${escapeHtml(t.subject)}</strong>
+            <h3 class="thread-subject">${escapeHtml(t.subject)}</h3>
             <div class="meta">${t.audience} ${t.needsReview ? "· requires review" : ""} ${t.unread ? "· unread" : ""}</div>
             <p style="margin:8px 0">${escapeHtml(t.body ?? t.draft ?? "")}</p>
             ${
@@ -632,15 +834,18 @@ export function mount(root: HTMLElement): void {
           </div>`;
         })
         .join("")}
-    </div>`;
+    </section>`;
   }
 
   function renderAudit(): string {
     const rows = filterAudit(state.audit, state.auditQuery);
-    return `<div class="card">
-      <h3>Immutable session log</h3>
+    return `<section class="card">
+      <h2 class="card-title">Immutable session log <span class="badge badge-cyan">${rows.length}</span></h2>
       <input id="audit-q" type="search" value="${escapeHtml(state.auditQuery)}" placeholder="Filter events…" aria-label="Filter audit" />
-      <div class="table-wrap"><table class="table">
+      ${
+        rows.length === 0
+          ? `<div class="empty-state" role="status"><strong>No events match “${escapeHtml(state.auditQuery)}”.</strong><div class="btn-row"><button class="btn-ghost" data-clear="audit">Clear filter</button></div></div>`
+          : `<div class="table-wrap"><table class="table">
         <thead><tr><th>When</th><th>Kind</th><th>Detail</th><th>Role</th><th>Chart</th></tr></thead>
         <tbody>
           ${rows
@@ -652,8 +857,9 @@ export function mount(root: HTMLElement): void {
             )
             .join("")}
         </tbody>
-      </table></div>
-    </div>`;
+      </table></div>`
+      }
+    </section>`;
   }
 
   function renderPalette(): string {
@@ -675,24 +881,27 @@ export function mount(root: HTMLElement): void {
   function render(): void {
     writeHash(state.view, state.patientId);
     const p = patient();
-    const body =
-      state.view === "dashboard"
-        ? renderDashboard()
-        : state.view === "copilot"
-          ? renderCopilot()
-          : state.view === "graph"
-            ? renderGraph()
-            : state.view === "patients"
-              ? renderPatients()
-              : state.view === "monitoring"
-                ? renderMonitoring()
-                : state.view === "messages"
-                  ? renderMessages()
-                  : renderAudit();
+    const views: Record<ViewId, () => string> = {
+      dashboard: renderDashboard,
+      copilot: renderCopilot,
+      graph: renderGraph,
+      patients: renderPatients,
+      monitoring: renderMonitoring,
+      messages: renderMessages,
+      audit: renderAudit
+    };
+    let body: string;
+    try {
+      body = views[state.view]();
+    } catch (err) {
+      console.error(err);
+      body = `<section class="card">${errorBlock(`${TITLES[state.view]} couldn't load.`, err, "analysis")}</section>`;
+    }
+    const moreActive = !MOBILE_PRIMARY.includes(state.view);
 
     const overlayOpen = state.navOpen || state.panelOpen;
     root.innerHTML = `
-      <div class="disclaimer-bar">NOMI is a demonstration prototype. <strong>Not medical advice</strong>, not a diagnosis, not a medical device, and not a substitute for a licensed clinician. Human review is required before any documentation, order, prescription, or patient message.</div>
+      <div class="disclaimer-bar"><span class="disc-full">NOMI is a demonstration prototype. <strong>Not medical advice</strong>, not a diagnosis, not a medical device, and not a substitute for a licensed clinician. Human review is required before any documentation, order, prescription, or patient message.</span><span class="disc-short">Demo prototype. <strong>Not medical advice</strong> or a medical device. Human review required.</span></div>
       <div class="app">
         ${renderSidebar()}
         <main class="main" id="main">
@@ -704,7 +913,8 @@ export function mount(root: HTMLElement): void {
           <div class="header">
             <div>
               <h1 tabindex="-1">${TITLES[state.view]}</h1>
-              <div class="meta">${p.id} · ${p.ageYears}y / ${p.sex[0].toUpperCase()} · MRN ${p.mrn} · ${escapeHtml(p.chiefConcern)}</div>
+              <div class="header-meta"><strong>${p.id}</strong> · ${p.ageYears}y ${p.sex} · MRN ${p.mrn} · ${escapeHtml(p.unit)} · admitted ${p.admitHoursAgo}h ago</div>
+              <div class="meta">${escapeHtml(p.chiefConcern)}</div>
             </div>
             <div class="live-pill">NOMI-3 demo · ${state.role}</div>
           </div>
@@ -715,12 +925,15 @@ export function mount(root: HTMLElement): void {
       </div>
       <div class="scrim${overlayOpen ? " show" : ""}" data-cmd="close-overlays" ${overlayOpen ? "" : "hidden"}></div>
       <nav class="bottom-nav" aria-label="Primary mobile">
-        ${VIEWS.map(
-          (v) =>
-            `<button class="bottom-nav-item${state.view === v.id ? " active" : ""}" data-nav="${v.id}" ${
-              state.view === v.id ? 'aria-current="page"' : ""
-            }>${v.label}</button>`
-        ).join("")}
+        ${VIEWS.filter((v) => MOBILE_PRIMARY.includes(v.id))
+          .map(
+            (v) =>
+              `<button class="bottom-nav-item${state.view === v.id ? " active" : ""}" data-nav="${v.id}" ${
+                state.view === v.id ? 'aria-current="page"' : ""
+              }>${v.id === "copilot" ? "Copilot" : v.label}</button>`
+          )
+          .join("")}
+        <button class="bottom-nav-item${moreActive ? " active" : ""}" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav">${moreActive ? escapeHtml(VIEWS.find((v) => v.id === state.view)!.label) : "More"}</button>
       </nav>
       ${renderPalette()}`;
 
@@ -757,10 +970,43 @@ export function mount(root: HTMLElement): void {
     });
     root.querySelector<HTMLButtonElement>("[data-fhir-export]")?.addEventListener("click", () => {
       const current = patient();
-      downloadFhir(current);
-      state.lastExport = fhirFilename(current.id);
-      log("export", `Downloaded FHIR bundle ${state.lastExport}`);
+      try {
+        downloadFhir(current);
+        state.lastExport = fhirFilename(current.id);
+        state.exportError = null;
+        log("export", `Downloaded FHIR bundle ${state.lastExport}`);
+      } catch (err) {
+        state.exportError = errorMessage(err);
+        log("export-error", `FHIR bundle for ${current.id}: ${state.exportError}`);
+      }
       render();
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-retry]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        analysisErrors.clear();
+        render();
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-retry-ask]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const question = btn.dataset.retryAsk!;
+        const failed = state.chat.findIndex((t) => t.retry === question);
+        if (failed > 0) state.chat.splice(failed - 1, 2);
+        ask(question);
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-clear]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.clear === "roster") {
+          state.rosterQuery = "";
+          state.rosterUnit = "";
+          focusAfterRender = "roster";
+        } else {
+          state.auditQuery = "";
+          focusAfterRender = "audit";
+        }
+        render();
+      });
     });
     root.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((btn) => {
       btn.addEventListener("click", () => {
