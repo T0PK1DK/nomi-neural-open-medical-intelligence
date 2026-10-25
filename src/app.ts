@@ -56,6 +56,7 @@ interface State {
   panelOpen: boolean;
   navOpen: boolean;
   auditQuery: string;
+  messageQuery: string;
   lastExport: string | null;
   exportError: string | null;
   copilotBusy: boolean;
@@ -84,8 +85,30 @@ const TITLES: Record<ViewId, string> = {
   audit: "Audit trail"
 };
 
+/** Views whose first paint is a loading card, then the body after one frame. */
+const GATED_VIEWS = ["graph", "patients", "monitoring", "messages", "audit"] as const;
+type GatedView = (typeof GATED_VIEWS)[number];
+
+const VIEW_LOADING: Record<GatedView, string> = {
+  graph: "Laying out the knowledge graph…",
+  patients: "Loading the demo roster…",
+  monitoring: "Reading the 24-hour traces…",
+  messages: "Opening message threads…",
+  audit: "Opening the session log…"
+};
+
+function isGated(view: ViewId): view is GatedView {
+  return (GATED_VIEWS as readonly string[]).includes(view);
+}
+
 function errorMessage(err: unknown): string {
-  return err instanceof Error && err.message ? err.message : "Unknown error";
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string" && err.trim()) return err;
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return "Unknown error";
 }
 
 /** Map a risk/score band onto the existing badge palette (low = reassuring green). */
@@ -249,12 +272,25 @@ export function mount(root: HTMLElement): void {
     panelOpen: false,
     navOpen: false,
     auditQuery: "",
+    messageQuery: "",
     lastExport: null,
     exportError: null,
     copilotBusy: false
   };
 
-  let focusAfterRender: "main" | "roster" | "audit" | "palette" | null = null;
+  const viewReady = new Set<string>();
+  const viewPending = new Set<string>();
+  const viewErrors = new Map<string, string>();
+
+  const screenKey = (view = state.view) => `${view}:${state.patientId}`;
+
+  const retryView = () => {
+    analysisErrors.clear();
+    viewErrors.delete(screenKey());
+    viewReady.delete(screenKey());
+  };
+
+  let focusAfterRender: "main" | "roster" | "audit" | "messages" | "palette" | null = null;
 
   const patient = () => patientById(state.patientId) ?? PATIENTS[0];
 
@@ -456,6 +492,14 @@ export function mount(root: HTMLElement): void {
     </div>`;
   }
 
+  function emptyBlock(title: string, body: string, action = ""): string {
+    return `<div class="empty-state" role="status">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${body}</p>
+      ${action}
+    </div>`;
+  }
+
   function renderDashboard(): string {
     const p = patient();
     const result = analysisFor(p, true);
@@ -642,7 +686,10 @@ export function mount(root: HTMLElement): void {
     const p = patient();
     const turns =
       state.chat.length === 0
-        ? `<div class="empty-state"><strong>Ask a chart-grounded question.</strong><p>Try “most likely diagnosis”, “drug interactions”, or “sources”. Thorough mode checks ${(1 << Math.min(14, knownFindings(p))).toLocaleString()} finding-flip worlds before answering.</p></div>`
+        ? emptyBlock(
+            "Ask a chart-grounded question.",
+            `Try “most likely diagnosis”, “drug interactions”, or “sources”. Thorough mode checks ${(1 << Math.min(14, knownFindings(p))).toLocaleString()} finding-flip worlds before answering.`
+          )
         : state.chat
             .map((t) => {
               if (t.pending) {
@@ -706,8 +753,16 @@ export function mount(root: HTMLElement): void {
       ? `<p class="meta">Selected <strong>${escapeHtml(labelOf(selected))}</strong> · neighbors: ${escapeHtml(
           neighborsOf(selected, edges).map(labelOf).join(", ") || "none"
         )}</p>`
-      : `<p class="meta">Click a node to reveal neighbor labels. Layout used 220 cooling ticks (quality over speed).</p>`;
-    return `<section class="card"><h2 class="card-title">Patient data ↔ diagnoses ↔ sources</h2>
+      : emptyBlock(
+          "No node selected.",
+          "Click a node to reveal neighbor labels. Layout used 220 cooling ticks (quality over speed)."
+        );
+    if (!laid.length) {
+      return `<section class="card" aria-labelledby="graph-title"><h2 class="card-title" id="graph-title">Patient data ↔ diagnoses ↔ sources</h2>
+        ${emptyBlock("No graph for this chart.", "Findings and draft diagnoses appear here when the chart has them.")}
+      </section>`;
+    }
+    return `<section class="card" aria-labelledby="graph-title"><h2 class="card-title" id="graph-title">Patient data ↔ diagnoses ↔ sources</h2>
       <div class="graph-wrap"><svg viewBox="0 0 720 400" role="group" aria-label="Knowledge graph">${lines}${circles}</svg></div>
       ${detail}
     </section>`;
@@ -720,7 +775,11 @@ export function mount(root: HTMLElement): void {
       return `<section class="card" aria-labelledby="roster-title">
       <h2 class="card-title" id="roster-title">Demo roster <span class="badge badge-cyan">0</span></h2>
       ${rosterFilters(units)}
-      <div class="empty-state" role="status"><strong>No charts match.</strong><p>Nothing matches “${escapeHtml(state.rosterQuery)}”${state.rosterUnit ? ` in ${escapeHtml(state.rosterUnit)}` : ""}.</p><div class="btn-row"><button class="btn-ghost" data-clear="roster">Clear filters</button></div></div>
+      ${emptyBlock(
+        "No charts match.",
+        `Nothing matches “${escapeHtml(state.rosterQuery)}”${state.rosterUnit ? ` in ${escapeHtml(state.rosterUnit)}` : ""}.`,
+        `<div class="btn-row"><button class="btn-ghost" data-clear="roster">Clear filters</button></div>`
+      )}
     </section>`;
     }
     return `<section class="card" aria-labelledby="roster-title">
@@ -798,7 +857,7 @@ export function mount(root: HTMLElement): void {
         <h2 class="card-title">Closed-loop alerts</h2>
         ${
           anomalies.length === 0
-            ? `<div class="empty-state" role="status"><strong>No alerts.</strong><p>No robust outliers on this synthetic trace.</p></div>`
+            ? emptyBlock("No alerts.", "No robust outliers on this synthetic trace.")
             : anomalies
                 .slice(0, 6)
                 .map((a, i) => {
@@ -820,11 +879,28 @@ export function mount(root: HTMLElement): void {
 
   function renderMessages(): string {
     const p = patient();
-    if (p.threads.length === 0) {
-      return `<section class="card"><h2 class="card-title">Threads</h2><div class="empty-state" role="status"><strong>No messages for ${p.id}.</strong><p>Care-team threads and patient drafts appear here.</p></div></section>`;
+    const q = state.messageQuery.trim().toLowerCase();
+    const threads = q
+      ? p.threads.filter((t) => `${t.subject} ${t.body ?? ""} ${t.draft ?? ""}`.toLowerCase().includes(q))
+      : p.threads;
+    const filter = `<div class="btn-row filters">
+        <input id="message-q" type="search" value="${escapeHtml(state.messageQuery)}" placeholder="Filter threads…" aria-label="Filter messages" />
+      </div>`;
+    if (threads.length === 0) {
+      return `<section class="card" aria-labelledby="messages-title"><h2 class="card-title" id="messages-title">Threads</h2>
+      ${filter}
+      ${emptyBlock(
+        p.threads.length === 0 ? `No messages for ${p.id}.` : `No threads match “${escapeHtml(state.messageQuery)}”.`,
+        "Care-team threads and patient drafts appear here.",
+        p.threads.length
+          ? `<div class="btn-row"><button class="btn-ghost" data-clear="messages">Clear filter</button></div>`
+          : ""
+      )}
+    </section>`;
     }
-    return `<section class="card"><h2 class="card-title">Threads</h2>
-      ${p.threads
+    return `<section class="card" aria-labelledby="messages-title"><h2 class="card-title" id="messages-title">Threads</h2>
+      ${filter}
+      ${threads
         .map((t) => {
           const released = state.released.includes(t.id);
           return `<div class="thread">
@@ -851,7 +927,11 @@ export function mount(root: HTMLElement): void {
       <input id="audit-q" type="search" value="${escapeHtml(state.auditQuery)}" placeholder="Filter events…" aria-label="Filter audit" />
       ${
         rows.length === 0
-          ? `<div class="empty-state" role="status"><strong>No events match “${escapeHtml(state.auditQuery)}”.</strong><div class="btn-row"><button class="btn-ghost" data-clear="audit">Clear filter</button></div></div>`
+          ? emptyBlock(
+              `No events match “${escapeHtml(state.auditQuery)}”.`,
+              "The session log is still on this device. Clear the filter to see every event.",
+              `<div class="btn-row"><button class="btn-ghost" data-clear="audit">Clear filter</button></div>`
+            )
           : `<div class="table-wrap"><table class="table">
         <thead><tr><th>When</th><th>Kind</th><th>Detail</th><th>Role</th><th>Chart</th></tr></thead>
         <tbody>
@@ -898,11 +978,34 @@ export function mount(root: HTMLElement): void {
       audit: renderAudit
     };
     let body: string;
-    try {
-      body = views[state.view]();
-    } catch (err) {
-      console.error(err);
-      body = `<section class="card">${errorBlock(`${TITLES[state.view]} couldn't load.`, err, "analysis")}</section>`;
+    const key = screenKey();
+    if (isGated(state.view) && viewErrors.has(key)) {
+      body = `<section class="card">${errorBlock(`${TITLES[state.view]} couldn't load.`, viewErrors.get(key), "view")}</section>`;
+    } else if (isGated(state.view) && !viewReady.has(key)) {
+      if (!viewPending.has(key)) {
+        viewPending.add(key);
+        afterPaint(() => {
+          try {
+            viewReady.add(key);
+          } catch (err) {
+            viewErrors.set(key, errorMessage(err));
+          } finally {
+            viewPending.delete(key);
+            render();
+          }
+        });
+      }
+      body = `<section class="card">${loadingBlock(VIEW_LOADING[state.view])}</section>`;
+    } else {
+      try {
+        body = views[state.view]();
+      } catch (err) {
+        console.error(err);
+        if (isGated(state.view)) {
+          viewErrors.set(key, errorMessage(err));
+        }
+        body = `<section class="card">${errorBlock(`${TITLES[state.view]} couldn't load.`, err, isGated(state.view) ? "view" : "analysis")}</section>`;
+      }
     }
     const moreActive = !MOBILE_PRIMARY.includes(state.view);
 
@@ -911,7 +1014,7 @@ export function mount(root: HTMLElement): void {
       <div class="disclaimer-bar"><span class="disc-full">NOMI is a demonstration prototype. <strong>Not medical advice</strong>, not a diagnosis, not a medical device, and not a substitute for a licensed clinician. Human review is required before any documentation, order, prescription, or patient message.</span><span class="disc-short">Demo prototype. <strong>Not medical advice</strong> or a medical device. Human review required.</span></div>
       <div class="app">
         ${renderSidebar()}
-        <main class="main" id="main">
+        <main class="main" id="main" data-screen="${state.view}">
           <div class="mobile-bar">
             <button class="btn-ghost" data-cmd="nav" aria-expanded="${state.navOpen}" aria-controls="primary-nav">Menu</button>
             <div class="patient-chip">${p.id} · ${p.ageYears}y</div>
@@ -990,7 +1093,7 @@ export function mount(root: HTMLElement): void {
     });
     root.querySelectorAll<HTMLButtonElement>("[data-retry]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        analysisErrors.clear();
+        retryView();
         render();
       });
     });
@@ -1008,6 +1111,9 @@ export function mount(root: HTMLElement): void {
           state.rosterQuery = "";
           state.rosterUnit = "";
           focusAfterRender = "roster";
+        } else if (btn.dataset.clear === "messages") {
+          state.messageQuery = "";
+          focusAfterRender = "messages";
         } else {
           state.auditQuery = "";
           focusAfterRender = "audit";
@@ -1070,6 +1176,11 @@ export function mount(root: HTMLElement): void {
       focusAfterRender = "audit";
       render();
     });
+    root.querySelector("#message-q")?.addEventListener("input", (e) => {
+      state.messageQuery = (e.target as HTMLInputElement).value;
+      focusAfterRender = "messages";
+      render();
+    });
     root.querySelectorAll<HTMLButtonElement>("[data-cmd]").forEach((btn) => {
       btn.addEventListener("click", () => {
         if (btn.dataset.cmd === "palette") {
@@ -1113,6 +1224,12 @@ export function mount(root: HTMLElement): void {
       if (el) {
         el.focus();
         el.setSelectionRange(state.auditQuery.length, state.auditQuery.length);
+      }
+    } else if (focusAfterRender === "messages") {
+      const el = document.getElementById("message-q") as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(state.messageQuery.length, state.messageQuery.length);
       }
     } else if (focusAfterRender === "palette") {
       const el = document.getElementById("palette-q") as HTMLInputElement | null;
