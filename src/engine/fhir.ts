@@ -897,6 +897,27 @@ export function validateFhirR4Bundle(input: unknown): FhirValidationIssue[] {
           issues.push(issue(`${rpath}.code`, "Vital-sign Observations should use a LOINC code"));
         }
       }
+
+      if (categoryOf(resource) === "laboratory") {
+        const ranges = Array.isArray(resource.referenceRange) ? resource.referenceRange.filter(isRecord) : [];
+        if (ranges.length === 0) {
+          issues.push(issue(`${rpath}.referenceRange`, "Laboratory Observations should carry referenceRange"));
+        } else if (!ranges.some((range) => typeof range.text === "string" && range.text)) {
+          issues.push(issue(`${rpath}.referenceRange`, "referenceRange should include a human-readable text bound"));
+        }
+        const interps = Array.isArray(resource.interpretation) ? resource.interpretation.filter(isRecord) : [];
+        const interp = interps
+          .flatMap((concept) => (Array.isArray(concept.coding) ? concept.coding.filter(isRecord) : []))
+          .find((c) => c.system === INTERPRETATION && typeof c.code === "string" && c.code in FLAG_BY_CODE);
+        if (!interp) {
+          issues.push(
+            issue(
+              `${rpath}.interpretation`,
+              "Laboratory Observations should use v3-ObservationInterpretation L, N, or H"
+            )
+          );
+        }
+      }
     }
 
     if (kind === "MedicationRequest") {

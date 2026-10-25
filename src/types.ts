@@ -32,8 +32,11 @@ export interface Lab {
   name: string;
   value: number;
   unit: string;
+  /** Inclusive lower bound of the demo reference range (Observation.referenceRange.low). */
   refLow: number;
+  /** Inclusive upper bound of the demo reference range (Observation.referenceRange.high). */
   refHigh: number;
+  /** Analytic flag exported as v3-ObservationInterpretation L / N / H. */
   flag: "low" | "normal" | "high";
 }
 
