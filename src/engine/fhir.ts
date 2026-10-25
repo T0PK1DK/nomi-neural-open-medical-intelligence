@@ -834,6 +834,16 @@ export function validateFhirR4Bundle(input: unknown): FhirValidationIssue[] {
       issues.push(issue(`${path}.resource.id`, "Resource.id must match [A-Za-z0-9-.]{1,64}"));
     }
 
+    const narrativeText = resource.text;
+    if (
+      !isRecord(narrativeText) ||
+      narrativeText.status !== "generated" ||
+      typeof narrativeText.div !== "string" ||
+      !narrativeText.div.includes(`xmlns="${XHTML_NS}"`)
+    ) {
+      issues.push(issue(`${path}.resource.text`, "Resource.text should be a generated XHTML narrative"));
+    }
+
     const kind = resource.resourceType;
     const rpath = `${path}.resource`;
 

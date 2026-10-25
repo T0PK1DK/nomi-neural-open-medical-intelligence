@@ -3,8 +3,10 @@ import { PATIENTS, patientById } from "../src/data/patients";
 import {
   FHIR_BASE,
   buildFhirBundle,
+  escapeXhtml,
   fhirChipRef,
   fhirChips,
+  narrative,
   parseFhirBundle,
   type FhirBundle,
   type FhirResource
@@ -355,5 +357,32 @@ describe("FHIR provenance chips", () => {
 
   it("no longer carries a handwritten fhir field on charts", () => {
     for (const p of PATIENTS) expect("fhir" in p).toBe(false);
+  });
+});
+
+describe("generated FHIR narrative", () => {
+  const XHTML = "http://www.w3.org/1999/xhtml";
+
+  it.each(bundles)("gives every resource in $patient.id a generated XHTML div", ({ bundle }) => {
+    for (const { resource } of bundle.entry) {
+      const text = (resource as Record<string, any>).text;
+      expect(text.status).toBe("generated");
+      expect(text.div.startsWith(`<div xmlns="${XHTML}">`)).toBe(true);
+      expect(text.div.endsWith("</div>")).toBe(true);
+      const inner = text.div.slice(`<div xmlns="${XHTML}">`.length, -"</div>".length);
+      expect(inner.trim().length).toBeGreaterThan(0);
+      expect(inner).not.toContain("\n");
+    }
+  });
+
+  it("escapes characters like < and & so the narrative HTML stays valid", () => {
+    expect(escapeXhtml(`<b>&"'`)).toBe("&lt;b&gt;&amp;&quot;&#39;");
+    expect(narrative("a < b & c").div).toBe(`<div xmlns="${XHTML}">a &lt; b &amp; c</div>`);
+    const nasty = { ...patientById("P-88472")!, problems: ["<script>alert(1)</script> & co"] };
+    const cond = buildFhirBundle(nasty, NOW).entry.find((e) => e.resource.resourceType === "Condition")!;
+    const div = (cond.resource as Record<string, any>).text.div as string;
+    expect(div).not.toContain("<script>");
+    expect(div).toContain("&lt;script&gt;");
+    expect(div).toContain("&amp; co");
   });
 });
