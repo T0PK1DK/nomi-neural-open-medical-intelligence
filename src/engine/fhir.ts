@@ -659,17 +659,28 @@ export function bundleResourceCounts(bundle: FhirBundle): Record<string, number>
   return counts;
 }
 
+/** `ResourceType/id` as it appears in the Bundle and on `data-fhir-ref`. */
+export function fhirChipRef(chip: Pick<FhirChip, "resourceType" | "id">): string {
+  return `${chip.resourceType}/${chip.id}`;
+}
+
 /**
  * Provenance chips derived from the exported bundle, so every chip names a
  * resource that really exists in the download (resourceType + id) and its
  * label is the same one-line summary as that resource's narrative. Vital-sign
  * Observations are left out to keep the strip short; they are still exported.
+ *
+ * DATA CHANGE: this replaces the old handwritten Patient.fhir chip ids
+ * (cond-hf, obs-bnp, …) which did not match any exported resource.
  */
 export function fhirChips(patient: Patient, now = new Date()): FhirChip[] {
-  return buildFhirBundle(patient, now)
-    .entry.map((e) => e.resource)
+  const bundle = buildFhirBundle(patient, now);
+  const exported = new Set(bundle.entry.map((e) => fhirChipRef(e.resource)));
+  return bundle.entry
+    .map((e) => e.resource)
     .filter((r) => r.resourceType !== "Observation" || categoryOf(r as Record<string, unknown>) === "laboratory")
-    .map((r) => ({ resourceType: r.resourceType, id: r.id, label: summarizeResource(r) }));
+    .map((r) => ({ resourceType: r.resourceType, id: r.id, label: summarizeResource(r) }))
+    .filter((chip) => exported.has(fhirChipRef(chip)));
 }
 
 const FHIR_ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;

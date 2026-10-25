@@ -3,6 +3,8 @@ import { PATIENTS, patientById } from "../src/data/patients";
 import {
   FHIR_BASE,
   buildFhirBundle,
+  fhirChipRef,
+  fhirChips,
   parseFhirBundle,
   type FhirBundle,
   type FhirResource
@@ -331,5 +333,27 @@ describe("FHIR import compatibility", () => {
   it("rejects malformed JSON with a clear error", () => {
     expect(() => parseFhirBundle("{not json")).toThrow(SyntaxError);
     expect(() => parseFhirBundle({ resourceType: "Bundle", type: "collection" })).toThrow(/entry/);
+  });
+});
+
+describe("FHIR provenance chips", () => {
+  it.each(bundles)("every chip for $patient.id points at a resource in the export", ({ patient, bundle }) => {
+    const chips = fhirChips(patient, NOW);
+    const ids = new Set(bundle.entry.map((e) => fhirChipRef(e.resource)));
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(ids.has(fhirChipRef(chip))).toBe(true);
+    }
+    expect(chips.filter((c) => c.resourceType === "Condition")).toHaveLength(patient.problems.length);
+    expect(chips.filter((c) => c.resourceType === "Observation")).toHaveLength(patient.labs.length);
+    expect(chips.filter((c) => c.resourceType === "MedicationRequest")).toHaveLength(patient.meds.length);
+    expect(chips.filter((c) => c.resourceType === "AllergyIntolerance")).toHaveLength(patient.allergies.length);
+    for (const lab of patient.labs) {
+      expect(chips.some((c) => c.resourceType === "Observation" && c.id === `${patient.id}-lab-${lab.id}`)).toBe(true);
+    }
+  });
+
+  it("no longer carries a handwritten fhir field on charts", () => {
+    for (const p of PATIENTS) expect("fhir" in p).toBe(false);
   });
 });
