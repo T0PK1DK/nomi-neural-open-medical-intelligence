@@ -25,6 +25,12 @@ function series(seed: number, base: Omit<MonitoringPoint, "t">, bump?: { at: num
   return out;
 }
 
+/**
+ * Synthetic demo charts. Identifiers only — no personal names.
+ * DATA CHANGE: there is no handwritten `fhir` chip list on a chart.
+ * Dashboard chips come from `fhirChips(patient)` so each one names a
+ * resource that `buildFhirBundle` actually emits.
+ */
 export const PATIENTS: Patient[] = [
   {
     id: "P-88472",

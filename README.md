@@ -19,10 +19,12 @@ Open the interactive prototype with `npm install` and `npm run dev`, then visit 
 - Roster search, remote-monitoring sparklines, MAD anomaly alerts with acknowledge / escalate
 - Review-before-release patient-facing drafts
 - Role density: clinician / student / researcher — **no PIN or passcode gate**
-- A **downloadable FHIR R4 collection Bundle** (Patient, Condition, Observation, MedicationRequest, AllergyIntolerance). Vitals follow the R4 vital signs profiles (LOINC, UCUM, blood pressure as a panel), references resolve inside the bundle, and tests cover conformance and round-trip import
+- A **downloadable FHIR R4 collection Bundle** (Patient, Condition, Observation, MedicationRequest, AllergyIntolerance). Vitals follow the R4 vital signs profiles (LOINC, UCUM, blood pressure as a panel). Lab Observations carry `referenceRange` and an L / N / H `interpretation`. Every resource has a generated XHTML narrative. References resolve inside the bundle. Older exports without range, flag, or narrative still import.
+- Provenance chips on the dashboard are built from that download, so each chip names a real `ResourceType/id`. Charts do not store a handwritten `fhir` list.
 - Hash routes, command palette (⌘K / Ctrl+K), keyboard-visible graph nodes
-- Mobile layout: left/right drawers with a scrim, labelled bottom navigation, 44 px targets, and horizontally scrollable tables
-- Vitest coverage for the reasoner, interactions, risk, copilot, search, audit, graph, catalog integrity, and FHIR export
+- Every screen (dashboard, copilot, graph, patients, monitoring, messages, audit) has a loading message, an error with Try again, and a friendly empty state
+- Phone layout at 390 px: left/right drawers with a scrim, labelled bottom navigation, 44 px targets, stacked roster/audit rows, no sideways page scroll. Type is 12 px or larger. Dark teal and cyan.
+- Vitest coverage for the reasoner, interactions, risk, copilot, search, audit, graph, catalog integrity, FHIR export, and the screen states above
 
 Demo charts use identifiers only (`P-88472`, …). Public copy contains **no personal names**.
 

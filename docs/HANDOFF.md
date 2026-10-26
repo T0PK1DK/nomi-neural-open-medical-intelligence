@@ -1,5 +1,25 @@
 # Handoff — ready prompt for the next coding agent
 
+**Not medical advice.** NOMI is a demonstration prototype. It is not a medical device and must not be used in the care of a real person.
+
+## 2026-10-25 jobs 1–4 and 6 (branch `cursor/nomi-jobs-1-6-4a8c`)
+
+### What this pass locked in
+- **Lab ranges and flags.** Tests in `tests/fhir-r4.test.ts` check `referenceRange` and v3-ObservationInterpretation L / N / H for every demo lab. The validator rejects a laboratory Observation that is missing them. `parseFhirBundle` still reads older exports that omit range, flag, and narrative.
+- **DATA CHANGE: provenance chips.** Charts do not store a handwritten `fhir` field. `fhirChips()` builds `{ resourceType, id, label }` from `buildFhirBundle`. A test proves every chip points at a real resource.
+- **Narrative.** Every exported resource has `text.status = generated` and an escaped one-line XHTML div. Tests prove `<` and `&` are escaped.
+- **Screen polish.** Dashboard, copilot, graph, patients, monitoring, messages, and audit each have a loading message, an error with Try again, and a friendly empty state. At 390 px the page does not scroll sideways; roster and audit rows stack. Type is 12 px or larger. Dark teal / cyan and the existing phone chrome stay.
+
+### Still true
+Do not deploy. No passcodes. No personal names. No invented medical codes. Keep the disclaimer on the banner, README, and footer.
+
+### Next (pick one)
+- eGFR is exported with UCUM `mL/min`. The usual clinical unit is `mL/min/{1.73_m2}`. Change the chart unit and the UCUM map together if you do this. NOT SURE whether every demo eGFR was computed with that body-surface convention.
+- Observation.performer warnings remain. Do not invent a Practitioner.
+- Labs still use the local demo code system. Do not add LOINC codes unless you are sure.
+- Accessibility: axe-core on the rendered shell is still open.
+- Message composer: edit a patient-facing draft before release.
+
 ## 2026-10-22 FHIR follow-ups (branch `claude/nomi-fhir-followups`, built on `claude/nomi-review` / PR #3)
 
 ### What shipped
@@ -22,8 +42,7 @@ Validator, all 5 charts: before 0 errors / 194 warnings (86 dom-6 + 108 "observa
 - **No new LOINC codes for labs.** Labs keep the local demo code system; no code was added that was not certain.
 
 ### Next
-- eGFR is exported with UCUM `mL/min`; the clinically usual unit is `mL/min/{1.73_m2}`. Change the chart unit and the UCUM map together if wanted.
-- Overlap: draft PR #4 (`leon/overnight-review`) also edits `src/app.ts` and `src/engine/fhir.ts`. Rebase whichever lands second.
+- eGFR is exported with UCUM `mL/min`; the clinically usual unit is `mL/min/{1.73_m2}`. Change the chart unit and the UCUM map together if wanted. PR #4 (`leon/overnight-review`) is already on `main`.
 
 
 Copy everything under **Prompt** into a new Claude / Cursor session. Do not deploy. Do not add a PIN or passcode gate. Do not put personal names in public copy.

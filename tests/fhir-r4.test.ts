@@ -3,6 +3,10 @@ import { PATIENTS, patientById } from "../src/data/patients";
 import {
   FHIR_BASE,
   buildFhirBundle,
+  escapeXhtml,
+  fhirChipRef,
+  fhirChips,
+  narrative,
   parseFhirBundle,
   type FhirBundle,
   type FhirResource
@@ -198,6 +202,86 @@ describe("FHIR R4 clinical resources", () => {
   });
 });
 
+describe("FHIR R4 laboratory reference ranges and interpretation", () => {
+  const INTERP = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+  const FLAG_CODE = { low: "L", normal: "N", high: "H" } as const;
+  const FLAG_DISPLAY = { L: "Low", N: "Normal", H: "High" } as const;
+
+  it.each(bundles)("exports referenceRange and an L/N/H interpretation for every lab of $patient.id", ({ patient, bundle }) => {
+    for (const lab of patient.labs) {
+      const obs = byId(bundle, `${patient.id}-lab-${lab.id}`);
+      const code = FLAG_CODE[lab.flag];
+      expect(obs.interpretation).toHaveLength(1);
+      expect(obs.interpretation[0].coding).toEqual([{ system: INTERP, code, display: FLAG_DISPLAY[code] }]);
+      expect(obs.interpretation[0].text).toBe(FLAG_DISPLAY[code]);
+      const range = obs.referenceRange[0];
+      expect(range.text).toContain(`${lab.refLow}–${lab.refHigh}`);
+      if (obs.valueQuantity.system === UCUM) {
+        expect(range.low).toEqual({ ...range.low, value: lab.refLow, system: UCUM, code: obs.valueQuantity.code });
+        expect(range.high).toEqual({ ...range.high, value: lab.refHigh, system: UCUM, code: obs.valueQuantity.code });
+      } else {
+        expect(range.low).toBeUndefined();
+        expect(range.high).toBeUndefined();
+      }
+    }
+  });
+
+  it.each(bundles)("round-trips range and flag for every lab of $patient.id", ({ patient, bundle }) => {
+    const parsed = parseFhirBundle(JSON.parse(JSON.stringify(bundle)));
+    expect(parsed.labs.map((l) => ({ name: l.name, refLow: l.refLow, refHigh: l.refHigh, flag: l.flag }))).toEqual(
+      patient.labs.map((l) => ({ name: l.name, refLow: l.refLow, refHigh: l.refHigh, flag: l.flag }))
+    );
+  });
+
+  it("keeps an unmapped unit as a text-only range instead of inventing a UCUM code", () => {
+    const patient = patientById("P-88472")!;
+    const odd = { ...patient, labs: [{ ...patient.labs[0], id: "odd", unit: "arb units", refLow: 1, refHigh: 2, flag: "high" as const }] };
+    const obs = byId(buildFhirBundle(odd, NOW), "P-88472-lab-odd");
+    expect(obs.referenceRange).toEqual([{ text: "1–2 arb units" }]);
+    expect(obs.interpretation[0].coding[0]).toMatchObject({ system: INTERP, code: "H" });
+    expect(parseFhirBundle(buildFhirBundle(odd, NOW)).labs[0]).toMatchObject({
+      refLow: 1,
+      refHigh: 2,
+      flag: "high"
+    });
+  });
+
+  it("still imports an older lab Observation that has no range or interpretation", () => {
+    const legacyLab = {
+      resourceType: "Bundle",
+      type: "collection",
+      entry: [
+        {
+          fullUrl: "urn:nomi:demo/Patient/P-1",
+          resource: {
+            resourceType: "Patient",
+            id: "P-1",
+            identifier: [{ value: "1-01" }],
+            gender: "unknown"
+          }
+        },
+        {
+          fullUrl: "urn:nomi:demo/Observation/lab-bnp",
+          resource: {
+            resourceType: "Observation",
+            id: "lab-bnp",
+            category: [{ coding: [{ code: "laboratory" }] }],
+            code: { text: "BNP" },
+            valueQuantity: { value: 832, unit: "pg/mL" }
+          }
+        }
+      ]
+    };
+    const slice = parseFhirBundle(legacyLab);
+    expect(slice.labs).toEqual([
+      { id: "lab-bnp", name: "BNP", value: 832, unit: "pg/mL", category: "laboratory" }
+    ]);
+    expect(slice.labs[0].refLow).toBeUndefined();
+    expect(slice.labs[0].refHigh).toBeUndefined();
+    expect(slice.labs[0].flag).toBeUndefined();
+  });
+});
+
 describe("FHIR import compatibility", () => {
   it("still reads a bundle written by the previous export format", () => {
     const legacy = {
@@ -251,5 +335,54 @@ describe("FHIR import compatibility", () => {
   it("rejects malformed JSON with a clear error", () => {
     expect(() => parseFhirBundle("{not json")).toThrow(SyntaxError);
     expect(() => parseFhirBundle({ resourceType: "Bundle", type: "collection" })).toThrow(/entry/);
+  });
+});
+
+describe("FHIR provenance chips", () => {
+  it.each(bundles)("every chip for $patient.id points at a resource in the export", ({ patient, bundle }) => {
+    const chips = fhirChips(patient, NOW);
+    const ids = new Set(bundle.entry.map((e) => fhirChipRef(e.resource)));
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(ids.has(fhirChipRef(chip))).toBe(true);
+    }
+    expect(chips.filter((c) => c.resourceType === "Condition")).toHaveLength(patient.problems.length);
+    expect(chips.filter((c) => c.resourceType === "Observation")).toHaveLength(patient.labs.length);
+    expect(chips.filter((c) => c.resourceType === "MedicationRequest")).toHaveLength(patient.meds.length);
+    expect(chips.filter((c) => c.resourceType === "AllergyIntolerance")).toHaveLength(patient.allergies.length);
+    for (const lab of patient.labs) {
+      expect(chips.some((c) => c.resourceType === "Observation" && c.id === `${patient.id}-lab-${lab.id}`)).toBe(true);
+    }
+  });
+
+  it("no longer carries a handwritten fhir field on charts", () => {
+    for (const p of PATIENTS) expect("fhir" in p).toBe(false);
+  });
+});
+
+describe("generated FHIR narrative", () => {
+  const XHTML = "http://www.w3.org/1999/xhtml";
+
+  it.each(bundles)("gives every resource in $patient.id a generated XHTML div", ({ bundle }) => {
+    for (const { resource } of bundle.entry) {
+      const text = (resource as Record<string, any>).text;
+      expect(text.status).toBe("generated");
+      expect(text.div.startsWith(`<div xmlns="${XHTML}">`)).toBe(true);
+      expect(text.div.endsWith("</div>")).toBe(true);
+      const inner = text.div.slice(`<div xmlns="${XHTML}">`.length, -"</div>".length);
+      expect(inner.trim().length).toBeGreaterThan(0);
+      expect(inner).not.toContain("\n");
+    }
+  });
+
+  it("escapes characters like < and & so the narrative HTML stays valid", () => {
+    expect(escapeXhtml(`<b>&"'`)).toBe("&lt;b&gt;&amp;&quot;&#39;");
+    expect(narrative("a < b & c").div).toBe(`<div xmlns="${XHTML}">a &lt; b &amp; c</div>`);
+    const nasty = { ...patientById("P-88472")!, problems: ["<script>alert(1)</script> & co"] };
+    const cond = buildFhirBundle(nasty, NOW).entry.find((e) => e.resource.resourceType === "Condition")!;
+    const div = (cond.resource as Record<string, any>).text.div as string;
+    expect(div).not.toContain("<script>");
+    expect(div).toContain("&lt;script&gt;");
+    expect(div).toContain("&amp; co");
   });
 });

@@ -659,17 +659,28 @@ export function bundleResourceCounts(bundle: FhirBundle): Record<string, number>
   return counts;
 }
 
+/** `ResourceType/id` as it appears in the Bundle and on `data-fhir-ref`. */
+export function fhirChipRef(chip: Pick<FhirChip, "resourceType" | "id">): string {
+  return `${chip.resourceType}/${chip.id}`;
+}
+
 /**
  * Provenance chips derived from the exported bundle, so every chip names a
  * resource that really exists in the download (resourceType + id) and its
  * label is the same one-line summary as that resource's narrative. Vital-sign
  * Observations are left out to keep the strip short; they are still exported.
+ *
+ * DATA CHANGE: this replaces the old handwritten Patient.fhir chip ids
+ * (cond-hf, obs-bnp, …) which did not match any exported resource.
  */
 export function fhirChips(patient: Patient, now = new Date()): FhirChip[] {
-  return buildFhirBundle(patient, now)
-    .entry.map((e) => e.resource)
+  const bundle = buildFhirBundle(patient, now);
+  const exported = new Set(bundle.entry.map((e) => fhirChipRef(e.resource)));
+  return bundle.entry
+    .map((e) => e.resource)
     .filter((r) => r.resourceType !== "Observation" || categoryOf(r as Record<string, unknown>) === "laboratory")
-    .map((r) => ({ resourceType: r.resourceType, id: r.id, label: summarizeResource(r) }));
+    .map((r) => ({ resourceType: r.resourceType, id: r.id, label: summarizeResource(r) }))
+    .filter((chip) => exported.has(fhirChipRef(chip)));
 }
 
 const FHIR_ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
@@ -823,6 +834,16 @@ export function validateFhirR4Bundle(input: unknown): FhirValidationIssue[] {
       issues.push(issue(`${path}.resource.id`, "Resource.id must match [A-Za-z0-9-.]{1,64}"));
     }
 
+    const narrativeText = resource.text;
+    if (
+      !isRecord(narrativeText) ||
+      narrativeText.status !== "generated" ||
+      typeof narrativeText.div !== "string" ||
+      !narrativeText.div.includes(`xmlns="${XHTML_NS}"`)
+    ) {
+      issues.push(issue(`${path}.resource.text`, "Resource.text should be a generated XHTML narrative"));
+    }
+
     const kind = resource.resourceType;
     const rpath = `${path}.resource`;
 
@@ -895,6 +916,27 @@ export function validateFhirR4Bundle(input: unknown): FhirValidationIssue[] {
         const loinc = firstCoding(resource.code);
         if (loinc?.system !== LOINC || !loinc.code) {
           issues.push(issue(`${rpath}.code`, "Vital-sign Observations should use a LOINC code"));
+        }
+      }
+
+      if (categoryOf(resource) === "laboratory") {
+        const ranges = Array.isArray(resource.referenceRange) ? resource.referenceRange.filter(isRecord) : [];
+        if (ranges.length === 0) {
+          issues.push(issue(`${rpath}.referenceRange`, "Laboratory Observations should carry referenceRange"));
+        } else if (!ranges.some((range) => typeof range.text === "string" && range.text)) {
+          issues.push(issue(`${rpath}.referenceRange`, "referenceRange should include a human-readable text bound"));
+        }
+        const interps = Array.isArray(resource.interpretation) ? resource.interpretation.filter(isRecord) : [];
+        const interp = interps
+          .flatMap((concept) => (Array.isArray(concept.coding) ? concept.coding.filter(isRecord) : []))
+          .find((c) => c.system === INTERPRETATION && typeof c.code === "string" && c.code in FLAG_BY_CODE);
+        if (!interp) {
+          issues.push(
+            issue(
+              `${rpath}.interpretation`,
+              "Laboratory Observations should use v3-ObservationInterpretation L, N, or H"
+            )
+          );
         }
       }
     }
